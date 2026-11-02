@@ -1,0 +1,65 @@
+# Kebijakan Privasi — Guitarwiter
+
+_Terakhir diperbarui: 2 November 2026 (v1.7.0: pemutar lagu offline)_
+
+Guitarwiter adalah keyboard Android yang mengubah nada gitar (lewat mikrofon) menjadi ketikan. Kebijakan ini menjelaskan data apa yang disentuh aplikasi dan ke mana perginya.
+
+**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah mesin terjemahan online yang opsional dan mati secara bawaan (lihat bagian 10).**
+
+## 1. Mikrofon
+- Izin **RECORD_AUDIO** dipakai hanya untuk mendeteksi nada gitar secara *real-time* di dalam aplikasi.
+- Audio **tidak direkam, tidak disimpan, dan tidak dikirim**. Suara langsung dianalisis dan dibuang; yang dipakai hanya hasilnya (nada apa yang terdengar).
+- Mikrofon hanya aktif saat fitur deteksi nada dinyalakan.
+
+## 2. Teks yang kamu ketik
+- Keyboard memproses teks yang kamu ketik **secara lokal** untuk saran kata, autokoreksi, dan huruf kapital otomatis.
+- Di **kolom privat** (kata sandi, mode penyamaran/incognito, atau kolom yang meminta tanpa personalisasi), keyboard **tidak belajar kata, tidak menyimpan pasangan kata, dan tidak menampilkan saran**.
+
+## 3. Data yang disimpan di perangkat
+Disimpan di penyimpanan lokal aplikasi (tidak keluar dari perangkat):
+- kata yang dipelajari dan pasangan kata untuk saran berikutnya,
+- pengaturan (bahasa, tema, ukuran keyboard, tombol yang ditampilkan, dll.),
+- daftar kata yang kamu blokir dari saran,
+- riwayat papan klip yang ditampilkan sebagai saran.
+
+Semuanya bisa dihapus lewat **Pengaturan Android → Aplikasi → Guitarwiter → Penyimpanan → Hapus data**, atau dengan menghapus aplikasi.
+
+## 4. Papan klip
+Guitarwiter membaca salinan terbaru di papan klip hanya untuk menampilkannya sebagai saran tempel. Isinya disimpan lokal dan tidak dikirim ke mana pun.
+
+## 5. Jaringan & pihak ketiga
+- Tidak ada pengiriman data ke server, tidak ada iklan, tidak ada SDK analitik.
+- Tab GIF berjalan offline (stiker emoji); tidak ada permintaan ke layanan GIF.
+
+## 6. Anak-anak
+Aplikasi tidak menargetkan anak-anak secara khusus dan tidak mengumpulkan data pribadi dari siapa pun.
+
+## 7. Perubahan kebijakan
+Jika kebijakan ini berubah, versi terbarunya akan ditampilkan di halaman ini beserta tanggal pembaruan.
+
+## 8. Kontak
+Pertanyaan soal privasi: **[ISI EMAIL KONTAK KAMU DI SINI]**
+
+---
+
+### English summary
+Guitarwiter processes everything on your device. The microphone (RECORD_AUDIO) is used only for real-time pitch detection; audio is never recorded, stored, or transmitted. Typed text, learned words, settings, and clipboard suggestions stay in local app storage and can be cleared by clearing app data. No ads, analytics, trackers, or network data transfer. In private/password fields the keyboard does not learn or suggest words. Contact: **[ADD YOUR CONTACT EMAIL HERE]**
+
+## 9. Fitur cerdas (offline) — Setelan → Eksperimental → "Fitur cerdas (offline)"
+Bawaannya **mati**. Saat dinyalakan, semua dikerjakan **di perangkat Anda**: mengubah tab dengan perintah, membuat lagu dan lirik dari akor, mengubah humming jadi lagu, perpustakaan tab lagu, segmentasi frasa, dan sampul lagu.
+- **Tidak ada koneksi internet, tidak ada API, tidak ada kunci, tidak ada layanan pihak ketiga.** Tidak ada teks, tab, rekaman, atau gambar yang dikirim ke mana pun.
+- Rekaman humming 30 detik hanya disimpan di memori selama dianalisis (melodinya dibaca di perangkat), lalu dibuang saat selesai atau dibatalkan. Tidak disimpan ke penyimpanan.
+- Tab terakhir yang Anda buka disimpan di penyimpanan lokal aplikasi (`lastTab`) agar bisa dilanjutkan; hapus data aplikasi untuk menghapusnya.
+- Versi lama (1.4.x) yang memakai layanan online menyimpan kunci API di perangkat. Versi ini menghapus kunci itu saat dimuat.
+
+## 10. Terjemah (v1.6.0) — Setelan → Eksperimental → "Fitur cerdas (offline)" → "⑥ Terjemah"
+- **Mesin offline (kamus bawaan, dan Meta Llama bila model dipasang):** teks yang kamu ketik di kotak Terjemah diproses sepenuhnya di perangkat. Tidak ada koneksi jaringan.
+- **Mesin online "Spark online" (Meta Model API) — MATI secara bawaan.** Hanya jika kamu (1) menyalakannya, (2) memasukkan kunci API milikmu sendiri, dan (3) memilih mesin Spark lalu menekan "Terjemahkan", **teks di kotak Terjemah itu saja** dikirim lewat https ke Meta Model API untuk diterjemahkan. Ketikan keyboard biasa, audio mikrofon, tab, dan papan klip tidak pernah dikirim. Pemrosesan di sisi Meta mengikuti syarat dan kebijakan privasi Meta; model bawaan memakai tingkat standar (bukan tingkat "contributor").
+- Kunci API disimpan hanya di penyimpanan lokal aplikasi di perangkat ini dan dikirim hanya sebagai header otorisasi ke `*.meta.ai`. Tombol "Hapus kunci" menghapusnya dari perangkat (cabut juga kuncinya di dashboard penyedia bila perlu).
+- Mode "Otomatis" tidak pernah memakai mesin online.
+
+## 11. Pemutar lagu offline (v1.7.0) — kisi alat → "Lagu offline"
+- Lagu diputar **sepenuhnya di perangkat** lewat pemutar bawaan Android. Tidak ada koneksi jaringan, tidak ada unggahan, tidak ada pelacakan lagu apa yang kamu putar.
+- Aplikasi **tidak meminta izin penyimpanan**. Ia hanya membaca berkas yang kamu pilih sendiri lewat pemilih berkas sistem: (a) "Tambah lagu" **menyalin** berkas pilihanmu ke folder aplikasi (`Android/data/com.keyboardkustom.app/files/songs/`); (b) "Pilih folder" memberi izin **baca saja** atas satu folder yang kamu pilih, dan lagu dimainkan di tempatnya tanpa disalin atau diubah. Izin itu bisa dilepas lewat tombol "Lupakan" atau dengan menghapus data aplikasi.
+- Yang disimpan di perangkat: daftar folder yang kamu pilih, lagu terakhir yang diputar, dan pengaturan pemutar (acak, ulang, volume, dua opsi). Nama berkas hanya ditampilkan di layar.
+- Selama lagu diputar, mikrofon deteksi gitar dimatikan (supaya suara speaker tidak terbaca sebagai nada) dan hidup lagi saat lagu dijeda atau berhenti.

@@ -1,0 +1,20 @@
+{
+  "name": "genjreng-ketik",
+  "version": "1.7.0",
+  "description": "Guitarwiter — keyboard Android kustom yang mengubah nada gitar menjadi ketikan otomatis.",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android",
+    "open:android": "cap open android",
+    "build:web": "node scripts/sync-lib.js",
+    "test": "node tools/ai-test.js && node tools/ai-panel-test.js && node tools/translate-test.js && node tools/songs-test.js && node scripts/sync-lib.js --check",
+    "verify": "npm test"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}
