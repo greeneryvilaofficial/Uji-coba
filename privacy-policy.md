@@ -1,10 +1,10 @@
 # Kebijakan Privasi — Guitarwiter
 
-_Terakhir diperbarui: 2 November 2026 (v1.7.0: pemutar lagu offline)_
+_Terakhir diperbarui: 10 November 2026 (v1.7.1: cadangan daftar lagu opsional)_
 
 Guitarwiter adalah keyboard Android yang mengubah nada gitar (lewat mikrofon) menjadi ketikan. Kebijakan ini menjelaskan data apa yang disentuh aplikasi dan ke mana perginya.
 
-**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah mesin terjemahan online yang opsional dan mati secara bawaan (lihat bagian 10).**
+**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah dua fitur online yang opsional dan mati secara bawaan: mesin terjemahan online (bagian 10) dan cadangan daftar lagu ke Firebase (bagian 12).**
 
 ## 1. Mikrofon
 - Izin **RECORD_AUDIO** dipakai hanya untuk mendeteksi nada gitar secara *real-time* di dalam aplikasi.
@@ -63,3 +63,9 @@ Bawaannya **mati**. Saat dinyalakan, semua dikerjakan **di perangkat Anda**: men
 - Aplikasi **tidak meminta izin penyimpanan**. Ia hanya membaca berkas yang kamu pilih sendiri lewat pemilih berkas sistem: (a) "Tambah lagu" **menyalin** berkas pilihanmu ke folder aplikasi (`Android/data/com.keyboardkustom.app/files/songs/`); (b) "Pilih folder" memberi izin **baca saja** atas satu folder yang kamu pilih, dan lagu dimainkan di tempatnya tanpa disalin atau diubah. Izin itu bisa dilepas lewat tombol "Lupakan" atau dengan menghapus data aplikasi.
 - Yang disimpan di perangkat: daftar folder yang kamu pilih, lagu terakhir yang diputar, dan pengaturan pemutar (acak, ulang, volume, dua opsi). Nama berkas hanya ditampilkan di layar.
 - Selama lagu diputar, mikrofon deteksi gitar dimatikan (supaya suara speaker tidak terbaca sebagai nada) dan hidup lagi saat lagu dijeda atau berhenti.
+
+## 12. Cadangan daftar lagu ke Firebase (v1.7.1) — panel "Lagu offline" → "☁ Cadangan daftar lagu"
+- **MATI secara bawaan.** Tidak ada data yang dikirim sampai kamu menyalakannya (dua ketukan) **dan** mengetuk "Cadangkan sekarang". Tidak ada sinkronisasi otomatis atau berkala.
+- Yang dikirim lewat https ke Cloud Firestore milik pengembang (Google, proyek `guitarwiter`): **judul lagu, nama folder, dan ukuran berkas**, plus waktu pembaruan, di bawah **id perangkat acak** (20 karakter yang dibuat di HP ini, bukan id iklan/IMEI dan tidak terkait akunmu). Yang **tidak** pernah dikirim: berkas audio, lokasi/path berkas, ketikan, mikrofon, papan klip.
+- Nama berkas lagu bisa memuat info pribadi; jangan nyalakan fitur ini kalau tidak nyaman. Pemrosesan oleh Google mengikuti syarat dan kebijakan privasi Google/Firebase. Firebase Analytics **tidak** dipasang.
+- "Hapus cadangan saya" menghapus semua entri milik id perangkat ini dari cloud. Menghapus data aplikasi menghapus id perangkat; entri lama lalu tidak bisa dihapus dari dalam aplikasi, jadi hapus cadangan dulu sebelum menghapus data aplikasi.
