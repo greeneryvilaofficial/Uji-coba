@@ -3,17 +3,18 @@
 A custom Android keyboard that turns **guitar notes into typing**. Pluck one note → one letter/key appears in any text field (WhatsApp, Instagram, etc.). Pitch detection runs natively (AudioRecord + YIN) inside the app, while the keyboard UI is a web page (`www/`) inside an `InputMethodService` WebView.
 
 ## For judges — what is real, what is optional, what is not done (v1.6.0)
-**60-second check, no API key and no APK needed:** open the green ✓ on the latest commit (workflow *Verify*) or run `npm test` (plain Node ≥ 18, no dependencies; 298 checks).
+**60-second check, no API key and no APK needed:** open the green ✓ on the latest commit (workflow *Verify*) or run `npm test` (plain Node ≥ 18, no dependencies; 306 checks).
 
 | Meta product | Where | State in this repo |
 |---|---|---|
 | **Llama 3.2 1B Instruct** (offline, on-device) | `src/lib/offline/llama.js`, `native-patches/LlamaBridge.java`, `docs/LLAMA_ON_DEVICE.md` | **Adapter + Android bridge are done and tested with a fake bridge** (Llama-3 chat template, async calls, timeout, busy-guard, honest status). **Not included:** the compiled `llama.cpp` JNI library and the `.gguf` model (≈0.8 GB; too big for GitHub/APK). Until both are installed the panel says so and falls back to the offline dictionary — it never pretends. |
-| **Muse Spark** (online, Meta Model API) | `src/lib/online/spark.js` | **Implemented and unit-tested with a mocked `fetch`**; request format follows Meta's documented OpenAI-compatible `chat/completions`. **Not yet called against the live API from this repo** (needs your own key). Off by default; opt-in; only the text typed in the translate box is sent. |
+| ~~Muse Spark~~ (online, Meta Model API) | removed in v1.8.0 | **Removed** (translation is now fully offline). Replaced by the opt-in **Gemini lyrics generator** below (`src/lib/online/gemini.js`). |
+| **Gemini lyrics** (online, opt-in, v1.8.0) | `src/lib/online/gemini.js`, `src/lib/offline/lyrics-store.js`, `src/lib/ui/lyrics-panel.js` | **Implemented and unit-tested with a mocked `fetch`** (`tools/lyrics-test.js`). **Not yet called against the live Gemini API from this repo** (needs your own key). Off by default. |
 | Offline dictionary (EN · ID · SU · JV) | `src/lib/offline/dict-*.js` | Working fallback, **seed size only (~90 entries)**, word-by-word. Sundanese/Javanese entries should be reviewed by native speakers. |
 
 Languages: **EN, ID, SU (Sunda), JV (Jawa)**. Llama 3.2 does not officially list Indonesian, Sundanese or Javanese among its supported languages, so expect weak quality from the 1B model there; the dictionary is the dependable offline path today.
 
-Everything the *offline* modules do runs without network (`www/ai/` and every file of `src/lib` except `online/spark.js` are statically scanned for network calls). In the app: **Settings → Experimental → turn on smart features → "⑥ Terjemah"**.
+Everything the *offline* modules do runs without network (`www/ai/` and every file of `src/lib` except `online/gemini.js` are statically scanned for network calls). In the app: **Settings → Experimental → turn on smart features → "⑥ Terjemah"**.
 
 ## How to use
 1. Install the APK from the **Releases** tab (use `Guitarwiter.apk` if present — it is the lightest release build).
@@ -56,18 +57,17 @@ native-patches/            # pasted into the android/ project that Capacitor gen
   SongPickerActivity.java      # v1.7.0: transparent activity that hosts the system file/folder picker (a keyboard service cannot receive picker results)
   insert_activity.py           # v1.7.0: registers SongPickerActivity in the manifest (taskAffinity "", exported=false)
   HumRecorder.java             # in-memory ring buffer of the last 30 s of mic audio (Muse Wonder)
-  MainActivity.java            # asks for the microphone permission, receives the Spark intent
+  MainActivity.java            # asks for the microphone permission, receives the (offline) Spark intent
   method.xml                   # IME declaration
   insert_*.py                  # scripts that patch manifest/gradle/icons/signing/performance/version
   app-icon/                    # launcher icons (mipmap-*)
 src/lib/                   # SOURCE of the translate modules (copied to www/lib by `npm run build:web`)
   core.js router.js
   offline/  dict-data.js dict-engine.js llama.js      # no network code
-  online/   spark.js                                  # the ONLY file that talks to the network (opt-in)
-  ui/       translate-panel.js
+  online/   gemini.js                                 # v1.8.0: the ONLY file that talks to the network (opt-in; lyrics via Gemini)
+  offline/  lyrics-store.js                           # v1.8.0: saved lyrics in localStorage, no network
+  ui/       translate-panel.js lyrics-panel.js
 www/player/songplayer.js   # v1.7.0: offline music player panel (lazy-loaded, no network code)
-www/player/cloud.js        # v1.7.1: OPTIONAL song-list backup to Firebase Firestore (REST; off by default; the only player file with network code)
-firebase/firestore.rules   # v1.7.1: recommended Firestore rules (replace the open, expiring default) + docs/FIREBASE.md
 scripts/sync-lib.js        # src/lib -> www/lib (Capacitor packs only www/)
 docs/                      # PUBLISH.md (how to publish the repo), LLAMA_ON_DEVICE.md
 www/
@@ -106,12 +106,14 @@ Every push to `main` builds an APK and a new Release (`build-<number>`).
 
 ## Changelog
 
-### v1.7.1 — optional Firebase backup of the song list
-- **New, opt-in, OFF by default:** panel *Lagu offline* → "☁ Cadangan daftar lagu". After you switch it on (two taps) and tap **Cadangkan sekarang**, only each song's **title, folder name and size** go to Cloud Firestore project `guitarwiter` (`devices/{random-20-char-id}/songs/{hash}`). **Audio files, file paths/URIs, song ids and everything you type are never sent**; the audio stays on the phone, so the backup is a *list* (view it with "Lihat cadangan", delete it with "Hapus cadangan saya"). Playing songs stays 100 percent offline.
-- Implemented as `www/player/cloud.js` over Firestore's **REST API** with your project's `apiKey`/`projectId`, not the Firebase JS SDK: this repo has no bundler (`www/` is static), so `import ... from "firebase/app"` cannot run. **Firebase Analytics is deliberately not installed** (the privacy policy promises no analytics and saving songs does not need it); the `measurementId` is kept in the config object but unused.
-- Guards enforced in code and tests: nothing is sent until enabled; no automatic/periodic sync (button taps only); one request at a time, at least 2 s apart, 15 s timeout, no automatic retry, max 2000 songs, 400 writes per commit; one https host (`firestore.googleapis.com`). `songplayer.js` itself still contains no network code.
-- **You must do in the Firebase console (see `docs/FIREBASE.md`):** replace the rules with `firebase/firestore.rules`. The default you pasted (`allow read, write: if request.time < 2026-12-10`) lets anyone who knows the project id read/write the whole database and **stops working on 10 Dec 2026**. Also make sure the Firestore database exists and restrict the API key to the Firestore API. Without Auth/App Check the rules cannot tell owners from strangers (honest limit, explained in the file).
-- **Not verified against the real Firebase server** (no network here). `tools/cloud-test.js` (35 checks) uses a fake `fetch`: request shape, what is *not* sent, diff-based backup (write changed, delete stale), pagination, chunking, error mapping, busy/too-fast/disabled guards. `sw.js` cache v33; version 1.7.1.
+### v1.8.0 — Muse Spark (online) replaced by "Lirik AI": song lyrics + chords from Gemini, saved offline
+- **Removed:** `src/lib/online/spark.js` (Muse Spark / Meta Model API), the "Spark online" translate engine and its key/model fields. Translation is now 100 percent offline (Llama if installed, otherwise the dictionary). The *offline* "Spark" editor commands in `www/ai/` are unrelated and unchanged.
+- **New tool "Lirik AI"** (tool grid, page 2): type a request (e.g. "bikinin lagu galau chord gampang"), tap **Bikin Lagu**, get *Judul / Lirik / Chord (C, G, Am, F)* from Google Gemini. The result is **saved automatically to this phone** (`localStorage['gw_lyrics_v1']`, max 200 songs / ~1.2 MB) and the saved list opens with **no internet at all**; "Ketik hasil" types the lyrics into the current text field.
+- **Opt-in, OFF by default:** you must switch it on (two taps) and paste **your own** API key (Google AI Studio). **There is no key in the code or APK** (the `ISI_API_KEY_KAMU_DISINI` placeholder from the original snippet is not shipped; the test fails if an `AIza...` key appears anywhere). Only the request text (max 300 chars) goes to `generativelanguage.googleapis.com`; typed text, audio, tabs, clipboard never do.
+- **Differences from the snippet you supplied (on purpose):** the key travels in the `x-goog-api-key` header, not in the URL `?key=`; the model is configurable and defaults to `gemini-2.5-flash` because `gemini-1.5-flash` has been retired by Google (calls usually return 404; the panel explains this); no `alert()` (status line instead); no `innerHTML` (AI text is shown with `textContent`); errors, blocked answers and empty candidates are handled instead of crashing on `data.candidates[0]`; guards: one request at a time, at least 1 s apart, 30 s timeout, 2048 output tokens, no automatic retry, fixed host.
+- Modules load only when the "Lirik AI" button is tapped (`LY_MODS` in `index.html`). `sw.js` cache v34; version 1.8.0; `www/lib` re-synced (9 files).
+- **Not verified against the real Gemini server** (no network here): `tools/lyrics-test.js` uses fake `fetch`. Model names change over time; if `gemini-2.5-flash` is retired too, type a current model name in the panel.
+- Built on v1.7.0 (offline music player). The Firebase backup that was briefly added as v1.7.1 was **reverted** and is not part of this version.
 
 ### v1.7.0 — offline music player (play songs from the app folder or any local folder)
 - **New tool "Lagu offline"** (tool grid, page 2). Plays audio with Android's own `MediaPlayer`, so it plays what the phone can play (typically mp3, m4a/aac, ogg, opus, wav, flac, mid). Controls: play/pause, previous/next, stop, seek bar, volume, shuffle, repeat off/all/one, search, auto-advance. Works with no network (the module contains no network code; checked by `tools/songs-test.js`).
@@ -267,8 +269,8 @@ Privacy policy: [privacy-policy.md](privacy-policy.md)
 ## Testing (`tools/` folder)
 Run here before a release; not shipped in the APK.
 - `tools/ai-test.js` (plain Node, no dependencies): 94 checks of the offline AI engines — no network in the code (static scan) and none at run time (fetch/XHR/WebSocket/beacon are blocked), tab validation, music theory, song builder, lyrics, library fidelity, Spark commands, chord→song, humming→song, segmentation, cover art.
-- `tools/translate-test.js` (plain Node): 65 checks of `src/lib` — only `online/spark.js` may contain network code, dictionary, Llama bridge contract (fake bridge: unavailable / busy / timeout / result), Spark request shape (key only in header, https + `*.meta.ai` only, error mapping, timeout, rate guard), router never goes online by itself, `index.html` / `sw.js` / workflow wiring, panel smoke test.
-- `tools/cloud-test.js` (plain Node, v1.7.1): 35 checks of the optional Firebase backup against a fake `fetch` (see the v1.7.1 changelog). Real Firebase is not contacted.
+- `tools/lyrics-test.js` (plain Node, v1.8.0): 77 checks of the Gemini lyrics feature against a fake `fetch`/`localStorage` — no key in code, key only in the `x-goog-api-key` header, one https host, model-name validation, guards (off / no key / busy / too fast / too long), error mapping (400 bad key, 404 retired model, 429, 5xx, blocked, empty, timeout, offline), offline store (cap, quota, corrupt data), panel (hostile AI text stays text, saved songs open with zero network).
+- `tools/translate-test.js` (plain Node): 40 checks of `src/lib` — only `online/gemini.js` may contain network code, dictionary, Llama bridge contract (fake bridge: unavailable / busy / timeout / result), no Spark engine left, router is fully offline, `index.html` / `sw.js` / workflow wiring, panel smoke test.
 - `tools/songs-test.js` (plain Node, v1.7.0): 61 checks of the offline music player — no network code (static scan of the JS and Java), manifest/workflow/service wiring, `insert_activity.py` idempotence, queue logic (next/previous/shuffle/repeat), the real panel script against a fake `AndroidSongs` bridge (list, play/pause/resume, auto-advance, errors, search, two-tap delete, mic hold/release, hostile file names, stale replies, missing bridge).
 - `tools/ai-panel-test.js` (plain Node): 34 checks that run the real panel script from `index.html` in a minimal fake DOM and tap its buttons (commands, chord→song, library, cover, humming with a fake native bridge, native intent allowlist).
 - `tools/flow-test.js` (Node + `npm i jsdom`): runs `www/index.html` in a fake browser; checks label ↔ note ↔ typed character for ALL keys in letter/Shift/Caps/symbol-1/symbol-2 modes, the typing flow from Java, Shift/CapsLock behaviour from pitch vs touch, and the `?123` mode switch.

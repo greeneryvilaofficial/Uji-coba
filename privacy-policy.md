@@ -1,10 +1,10 @@
 # Kebijakan Privasi — Guitarwiter
 
-_Terakhir diperbarui: 10 November 2026 (v1.7.1: cadangan daftar lagu opsional)_
+_Terakhir diperbarui: 10 November 2026 (v1.8.0: Lirik AI dengan Gemini menggantikan Muse Spark)_
 
 Guitarwiter adalah keyboard Android yang mengubah nada gitar (lewat mikrofon) menjadi ketikan. Kebijakan ini menjelaskan data apa yang disentuh aplikasi dan ke mana perginya.
 
-**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah dua fitur online yang opsional dan mati secara bawaan: mesin terjemahan online (bagian 10) dan cadangan daftar lagu ke Firebase (bagian 12).**
+**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah fitur "Lirik AI" (Google Gemini) yang opsional dan mati secara bawaan (lihat bagian 12).**
 
 ## 1. Mikrofon
 - Izin **RECORD_AUDIO** dipakai hanya untuk mendeteksi nada gitar secara *real-time* di dalam aplikasi.
@@ -52,11 +52,9 @@ Bawaannya **mati**. Saat dinyalakan, semua dikerjakan **di perangkat Anda**: men
 - Tab terakhir yang Anda buka disimpan di penyimpanan lokal aplikasi (`lastTab`) agar bisa dilanjutkan; hapus data aplikasi untuk menghapusnya.
 - Versi lama (1.4.x) yang memakai layanan online menyimpan kunci API di perangkat. Versi ini menghapus kunci itu saat dimuat.
 
-## 10. Terjemah (v1.6.0) — Setelan → Eksperimental → "Fitur cerdas (offline)" → "⑥ Terjemah"
-- **Mesin offline (kamus bawaan, dan Meta Llama bila model dipasang):** teks yang kamu ketik di kotak Terjemah diproses sepenuhnya di perangkat. Tidak ada koneksi jaringan.
-- **Mesin online "Spark online" (Meta Model API) — MATI secara bawaan.** Hanya jika kamu (1) menyalakannya, (2) memasukkan kunci API milikmu sendiri, dan (3) memilih mesin Spark lalu menekan "Terjemahkan", **teks di kotak Terjemah itu saja** dikirim lewat https ke Meta Model API untuk diterjemahkan. Ketikan keyboard biasa, audio mikrofon, tab, dan papan klip tidak pernah dikirim. Pemrosesan di sisi Meta mengikuti syarat dan kebijakan privasi Meta; model bawaan memakai tingkat standar (bukan tingkat "contributor").
-- Kunci API disimpan hanya di penyimpanan lokal aplikasi di perangkat ini dan dikirim hanya sebagai header otorisasi ke `*.meta.ai`. Tombol "Hapus kunci" menghapusnya dari perangkat (cabut juga kuncinya di dashboard penyedia bila perlu).
-- Mode "Otomatis" tidak pernah memakai mesin online.
+## 10. Terjemah — Setelan → Eksperimental → "Fitur cerdas (offline)" → "⑥ Terjemah"
+- Terjemah **sepenuhnya offline** (kamus bawaan, dan Meta Llama bila model dipasang): teks di kotak Terjemah diproses di perangkat. Tidak ada koneksi jaringan.
+- Mesin online "Spark" (Meta Model API) yang ada di v1.6.0–1.7.0 **sudah dihapus di v1.8.0**, begitu pula kunci API-nya (hapus data aplikasi bila ingin membersihkan sisa kunci lama).
 
 ## 11. Pemutar lagu offline (v1.7.0) — kisi alat → "Lagu offline"
 - Lagu diputar **sepenuhnya di perangkat** lewat pemutar bawaan Android. Tidak ada koneksi jaringan, tidak ada unggahan, tidak ada pelacakan lagu apa yang kamu putar.
@@ -64,8 +62,8 @@ Bawaannya **mati**. Saat dinyalakan, semua dikerjakan **di perangkat Anda**: men
 - Yang disimpan di perangkat: daftar folder yang kamu pilih, lagu terakhir yang diputar, dan pengaturan pemutar (acak, ulang, volume, dua opsi). Nama berkas hanya ditampilkan di layar.
 - Selama lagu diputar, mikrofon deteksi gitar dimatikan (supaya suara speaker tidak terbaca sebagai nada) dan hidup lagi saat lagu dijeda atau berhenti.
 
-## 12. Cadangan daftar lagu ke Firebase (v1.7.1) — panel "Lagu offline" → "☁ Cadangan daftar lagu"
-- **MATI secara bawaan.** Tidak ada data yang dikirim sampai kamu menyalakannya (dua ketukan) **dan** mengetuk "Cadangkan sekarang". Tidak ada sinkronisasi otomatis atau berkala.
-- Yang dikirim lewat https ke Cloud Firestore milik pengembang (Google, proyek `guitarwiter`): **judul lagu, nama folder, dan ukuran berkas**, plus waktu pembaruan, di bawah **id perangkat acak** (20 karakter yang dibuat di HP ini, bukan id iklan/IMEI dan tidak terkait akunmu). Yang **tidak** pernah dikirim: berkas audio, lokasi/path berkas, ketikan, mikrofon, papan klip.
-- Nama berkas lagu bisa memuat info pribadi; jangan nyalakan fitur ini kalau tidak nyaman. Pemrosesan oleh Google mengikuti syarat dan kebijakan privasi Google/Firebase. Firebase Analytics **tidak** dipasang.
-- "Hapus cadangan saya" menghapus semua entri milik id perangkat ini dari cloud. Menghapus data aplikasi menghapus id perangkat; entri lama lalu tidak bisa dihapus dari dalam aplikasi, jadi hapus cadangan dulu sebelum menghapus data aplikasi.
+## 12. Lirik AI dengan Google Gemini (v1.8.0) — kisi alat → "Lirik AI"
+- **MATI secara bawaan.** Hanya jika kamu (1) menyalakannya (dua ketukan), (2) memasukkan **kunci API Gemini milikmu sendiri**, dan (3) menekan "Bikin Lagu", **teks permintaan di kotak itu saja** (maks 300 karakter) dikirim lewat https ke `generativelanguage.googleapis.com` bersama instruksi tetap "penulis lagu". Ketikan keyboard biasa, audio/mikrofon, tab, papan klip, dan daftar lagu tidak pernah dikirim. Tidak ada kunci di dalam aplikasi.
+- Kunci disimpan hanya di penyimpanan lokal aplikasi di perangkat ini dan dikirim hanya di header `x-goog-api-key`. "Hapus kunci" menghapusnya dari perangkat (cabut juga di Google AI Studio bila pernah bocor).
+- Pemrosesan oleh Google mengikuti ketentuan Gemini API; pada tingkat gratis, Google dapat memakai isi permintaan dan jawaban untuk meningkatkan produknya. Jangan menulis data pribadi di kotak permintaan.
+- Lagu hasil Gemini **otomatis disimpan hanya di perangkat** (penyimpanan lokal aplikasi) dan bisa dibuka lagi tanpa internet; tombol 🗑 atau menghapus data aplikasi menghapusnya. Tidak ada unggahan, akun, analitik, atau pelacak.
