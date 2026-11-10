@@ -3,7 +3,7 @@
 // dimuat walau tanpa koneksi internet (penting karena WebView keyboard
 // akan sering dibuka tanpa jaringan aktif).
 
-const CACHE_NAME = 'genjreng-ketik-cache-v33'; // v1.7.1: cadangan daftar lagu opsional (player/cloud.js, Firebase REST); v1.7.0: pemutar lagu offline (player/songplayer.js + folder lokal); v1.6.0: modul terjemah (lib/: Llama offline, kamus, Muse Spark online opsional); v1.5.1: panel ikut tema keyboard + diagnosis modul; v1.5.0: semua AI offline (tanpa API); v1.4.7: Wonder lewat endpoint chat + model wajib; v1.4.6: Wonder hemat (melodi lokal, jatah 1x, saklar mati); v1.4.5: kolom API Key/Endpoint/Test Connection; v1.4.0: modul AI (Muse); (v1.3.9 petikan gitar dihapus); v1.3.8: pembanding harmonik terkuat, zona rendah lebih cepat; v1.3.7: turun oktaf butuh harmonik ganjil (p/a/s tidak lagi jadi angka)
+const CACHE_NAME = 'genjreng-ketik-cache-v34'; // v1.8.0: Muse Spark online diganti Gemini untuk lirik lagu (lib/online/gemini.js, lib/offline/lyrics-store.js, lib/ui/lyrics-panel.js); v1.7.0: pemutar lagu offline (player/songplayer.js + folder lokal); v1.6.0: modul terjemah (lib/: Llama offline, kamus, Muse Spark online opsional); v1.5.1: panel ikut tema keyboard + diagnosis modul; v1.5.0: semua AI offline (tanpa API); v1.4.7: Wonder lewat endpoint chat + model wajib; v1.4.6: Wonder hemat (melodi lokal, jatah 1x, saklar mati); v1.4.5: kolom API Key/Endpoint/Test Connection; v1.4.0: modul AI (Muse); (v1.3.9 petikan gitar dihapus); v1.3.8: pembanding harmonik terkuat, zona rendah lebih cepat; v1.3.7: turun oktaf butuh harmonik ganjil (p/a/s tidak lagi jadi angka)
 const CORE_ASSETS = [
   'index.html',
   'ai/ai-core.js',
@@ -15,12 +15,13 @@ const CORE_ASSETS = [
   'ai/generate-full.js',
   'ai/waveform.js',
   'player/songplayer.js',
-  'player/cloud.js',
   'lib/core.js',
   'lib/offline/dict-data.js',
   'lib/offline/dict-engine.js',
   'lib/offline/llama.js',
-  'lib/online/spark.js',
+  'lib/online/gemini.js',
+  'lib/offline/lyrics-store.js',
+  'lib/ui/lyrics-panel.js',
   'lib/router.js',
   'lib/ui/translate-panel.js',
   'manifest.json',

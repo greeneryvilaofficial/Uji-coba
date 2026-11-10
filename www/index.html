@@ -680,6 +680,7 @@
         <button class="tool-pill" id="infoBtn" data-tool="info" title="Tampilkan info nada di bar saran" type="button"><span data-icon="mic"></span><span class="lbl">Info nada</span></button>
         <button class="tool-pill" id="resetDictBtn" data-tool="reset" title="Hapus kamus pribadi" type="button"><span data-icon="trash"></span><span class="lbl">Reset kamus</span></button>
         <button class="tool-pill" id="songsBtn" data-tool="songs" title="Putar lagu dari HP (offline)" type="button"><span data-icon="music"></span><span class="lbl">Lagu offline</span></button>
+        <button class="tool-pill" id="lyricsBtn" data-tool="lyrics" title="Lirik lagu dari Gemini AI (online, opsional)" type="button"><span data-icon="pencil"></span><span class="lbl">Lirik AI</span></button>
       </div></div>
     </div>
     <div class="tool-foot">
@@ -735,7 +736,7 @@
     </div>
     <div class="translate-preview" id="translatePreview">Ketik pakai tuts di bawah, hasil terjemahan muncul di sini…</div>
     <button class="translate-insert" id="translateInsert" type="button">Sisipkan terjemahan ⏎</button>
-    <div class="translate-note">Kamus bawaan terbatas (offline, kata per kata). Untuk hasil akurat penuh, sambungkan API terjemahan (Meta Model API - Muse Spark) lewat jembatan Android.</div>
+    <div class="translate-note">Kamus bawaan terbatas (offline, kata per kata). Terjemah offline: Meta Llama bila terpasang, kamus bawaan sebagai cadangan.</div>
   </div>
   <div class="keyboard-inner" id="keyboardInner">
     <div class="keyboard" id="keyboard"></div>
@@ -4716,6 +4717,22 @@
     showStatus('Terjemahan disisipkan.');
   });
 
+  // ---------------- [LABEL GWLY / PEMUAT] Lirik AI (Gemini): modul dimuat BERURUTAN, HANYA saat tombol "Lirik AI" diketuk ----------------
+  const LY_MODS = ['lib/core.js','lib/online/gemini.js','lib/offline/lyrics-store.js','lib/ui/lyrics-panel.js'];
+  let lyricsLoading = null;
+  function loadLyrics(){
+    if(window.gwLyricsOpen) return Promise.resolve(true);
+    if(lyricsLoading) return lyricsLoading;
+    lyricsLoading = LY_MODS.reduce((p, src) => p.then(ok => ok && new Promise(res => {
+      const sc = document.createElement('script'); sc.src = src; sc.onload = () => res(true); sc.onerror = () => res(false); document.head.appendChild(sc);
+    })), Promise.resolve(true)).then(ok => { const good = !!ok && !!window.gwLyricsOpen; if(!good) lyricsLoading = null; return good; });
+    return lyricsLoading;
+  }
+  document.getElementById('lyricsBtn').addEventListener('click', ()=>{
+    closeEverything();
+    loadLyrics().then(ok => { if(ok) window.gwLyricsOpen(); else showStatus('❌ Modul Lirik AI gagal dimuat (folder www/lib/ tidak ikut di APK). Pasang ulang APK dari build terbaru.'); });
+  });
+
   // ---------------- [LABEL SONGS / PEMUAT] pemutar lagu offline: skrip dimuat HANYA saat tombol "Lagu offline" diketuk ----------------
   let songsLoading = null;
   function loadSongs(){
@@ -4792,7 +4809,7 @@
   function loadFailMsg(){ return 'Modul gagal dimuat: ' + (failedSrc || 'tidak diketahui') + '.\nPenyebab paling mungkin: folder www/ai/ belum ikut di-push ke GitHub / belum ikut di-build ke APK. Pasang ulang APK dari build terbaru.'; }
   function showStatus(){ var e = $('gwai-status'); if(!e) return; e.textContent = loaded ? 'Modul: ' + MODS.length + '/' + MODS.length + ' dimuat ✓ (v' + G().version + ')' : 'Modul: ' + loadedCount + '/' + MODS.length + ' dimuat — gagal di ' + (failedSrc || '?'); }
   /* ---------- [LABEL GWTR / PEMUAT] modul terjemah (src/lib -> www/lib): dimuat HANYA saat tombol "Buka Terjemah" ditekan ---------- */
-  var TR_MODS = ['lib/core.js','lib/offline/dict-data.js','lib/offline/dict-engine.js','lib/offline/llama.js','lib/online/spark.js','lib/router.js','lib/ui/translate-panel.js'], trLoading = null, trFailed = '';
+  var TR_MODS = ['lib/core.js','lib/offline/dict-data.js','lib/offline/dict-engine.js','lib/offline/llama.js','lib/router.js','lib/ui/translate-panel.js'], trLoading = null, trFailed = '';
   function loadTranslate(){
     if(window.gwTranslateOpen) return Promise.resolve(true);
     if(trLoading) return trLoading;
@@ -4963,7 +4980,7 @@
     btn('Segmentasi frasa (SAM)', runSam); btn('Sampul lagu (Image)', runCover);
     var im = document.createElement('img'); im.id = 'gwai-cover'; im.alt = 'Sampul'; panel.appendChild(im);
     el('h4', '⑥ Terjemah (EN · ID · SU · JV)');
-    el('div', 'Meta Llama offline bila sudah terpasang di HP, kamus offline sebagai cadangan. Mode online (Muse Spark) opsional, mati bawaan, kunci milikmu sendiri.', 'hint');
+    el('div', 'Meta Llama offline bila sudah terpasang di HP, kamus offline sebagai cadangan. Terjemah sepenuhnya offline. Lirik lagu online (Gemini) ada di tombol "Lirik AI" di kisi alat — opsional dan mati bawaan.', 'hint');
     btn('Buka Terjemah', function(){ loadTranslate().then(function(ok){ if(ok) window.gwTranslateOpen(); else setText('gwai-note', 'Modul terjemah gagal dimuat: ' + (trFailed || '?') + '. Pasang ulang APK dari build terbaru (folder www/lib/ harus ikut).'); }); });
     el('div', '', 'hint').id = 'gwai-note';
   }
