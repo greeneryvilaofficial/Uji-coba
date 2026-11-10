@@ -8,13 +8,13 @@ const walk = d => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDi
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  // ---------- 1. pemindaian statis: hanya online/spark.js yang boleh menyentuh jaringan ----------
+  // ---------- 1. pemindaian statis: hanya online/gemini.js (lirik lagu, opsional) yang boleh menyentuh jaringan ----------
   const files = walk(LIB), rel = f => path.relative(LIB, f).replace(/\\/g, '/');
   const NET = ['fetch(', 'XMLHttpRequest', 'WebSocket', 'sendBeacon', 'EventSource', 'https://', 'http://', 'Authorization'];
-  const offenders = files.filter(f => rel(f) !== 'online/spark.js').flatMap(f => NET.filter(w => fs.readFileSync(f, 'utf8').includes(w)).map(w => rel(f) + ':' + w));
-  ok(files.length === 7 && offenders.length === 0, 'semua berkas src/lib selain online/spark.js bebas fetch/XHR/WebSocket/URL/Authorization' + (offenders.length ? ' -> ' + offenders : ''));
-  const sparkSrc = fs.readFileSync(path.join(LIB, 'online', 'spark.js'), 'utf8');
-  ok((sparkSrc.match(/https:\/\//g) || []).length >= 1 && !/http:\/\//.test(sparkSrc), 'spark.js hanya memuat alamat https');
+  const offenders = files.filter(f => rel(f) !== 'online/gemini.js').flatMap(f => NET.filter(w => fs.readFileSync(f, 'utf8').includes(w)).map(w => rel(f) + ':' + w));
+  ok(files.length === 9 && offenders.length === 0, 'semua berkas src/lib selain online/gemini.js bebas fetch/XHR/WebSocket/URL/Authorization' + (offenders.length ? ' -> ' + offenders : ''));
+  const gemSrc = fs.readFileSync(path.join(LIB, 'online', 'gemini.js'), 'utf8');
+  ok((gemSrc.match(/https:\/\//g) || []).length >= 1 && !/http:\/\//.test(gemSrc) && !fs.existsSync(path.join(LIB, 'online', 'spark.js')), 'gemini.js hanya memuat alamat https; spark.js (Muse Spark online) sudah dihapus');
   ok(!/localStorage\.(get|set)Item\('meta_key'/.test(files.map(f => fs.readFileSync(f, 'utf8')).join('')), 'tidak memakai kunci lama meta_key');
 
   // ---------- lingkungan palsu ----------
@@ -22,9 +22,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   global.localStorage = { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: k => { delete ls[k]; } };
   let fetchCalls = [], fetchImpl = null; global.fetch = (u, i) => { fetchCalls.push({ u, i }); return fetchImpl(u, i); };
   const mkResp = (status, obj) => Promise.resolve({ ok: status >= 200 && status < 300, status, text: () => Promise.resolve(typeof obj === 'string' ? obj : JSON.stringify(obj)) });
-  for (const f of ['core', 'offline/dict-data', 'offline/dict-engine', 'offline/llama', 'online/spark', 'router', 'ui/translate-panel']) { try { (0, eval)(fs.readFileSync(path.join(LIB, f + '.js'), 'utf8')); } catch (e) { if (f !== 'ui/translate-panel') throw e; } }
+  for (const f of ['core', 'offline/dict-data', 'offline/dict-engine', 'offline/llama', 'router', 'ui/translate-panel']) { try { (0, eval)(fs.readFileSync(path.join(LIB, f + '.js'), 'utf8')); } catch (e) { if (f !== 'ui/translate-panel') throw e; } }
   const T = global.GWTR, C = T.core;
-  ok(!!(T.core && T.dict && T.llama && T.spark && T.translate), 'semua modul termuat (core, dict, llama, spark, router)');
+  ok(!!(T.core && T.dict && T.llama && T.translate) && !T.spark, 'semua modul termuat (core, dict, llama, router); tidak ada T.spark');
 
   // ---------- 2. kamus offline ----------
   const d = (s, a, b) => T.dict.translate(s, a, b);
@@ -56,50 +56,25 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   pr = L.translate('Halo', 'id', 'en', { timeoutMs: 30 }); r = await pr; ok(r.error === 'timeout', 'timeout ditangani, tidak menggantung');
   global.__gwLlamaResult(999, '{"ok":true,"text":"x"}'); ok(true, 'hasil untuk id tak dikenal diabaikan tanpa galat');
 
-  // ---------- 4. Muse Spark online ----------
-  const S = T.spark;
-  ok(S.isOn() === false && !S.hasKey(), 'bawaan: online MATI dan tanpa kunci');
-  r = await S.translate('Halo', 'id', 'en'); ok(r.error === 'online-disabled' && fetchCalls.length === 0, 'mati -> online-disabled, 0 permintaan jaringan');
-  S.enable(true); r = await S.translate('Halo', 'id', 'en'); ok(r.error === 'no-key' && fetchCalls.length === 0, 'tanpa kunci -> no-key, 0 permintaan jaringan');
-  ok(!S.setKey('pendek').ok && !S.setKey('ada spasi di sini 12345').ok && S.setKey('mk-TESTKEY-1234567890').ok && S.hasKey() && S.keyHint().endsWith('7890') && !S.keyHint().includes('TESTKEY'), 'validasi kunci; petunjuk hanya menampilkan 4 karakter terakhir');
-  const okEp = ['https://api.meta.ai/v1/chat/completions', 'https://meta.ai/v1/x', 'https://eu.api.meta.ai/v1/chat/completions'], badEp = ['http://api.meta.ai/v1/chat/completions', 'https://evil.com/v1', 'https://api.meta.ai.evil.com/v1', 'https://user:pw@api.meta.ai/v1', 'https://api.meta.ai/v1?x=1', 'https://api.meta.ai/v1#h', 'https://api.meta.ai/v 1', 'ftp://api.meta.ai', ''];
-  ok(okEp.every(S.checkEndpoint) && badEp.every(u => !S.checkEndpoint(u)), 'endpoint: hanya https + host meta.ai (http, host lain, user:pass, query, hash, spasi ditolak)');
-  ok(!S.setConfig({ endpoint: 'https://evil.com/x' }).ok && S.getConfig().endpoint === S.DEFAULTS.endpoint, 'endpoint buruk ditolak dan tidak tersimpan');
-  const rq = S.buildRequest('Halo dunia', 'id', 'en'), body = JSON.parse(rq.init.body);
-  ok(rq.url === 'https://api.meta.ai/v1/chat/completions' && rq.init.method === 'POST' && rq.init.headers.Authorization === 'Bearer mk-TESTKEY-1234567890', 'permintaan: URL resmi, POST, Bearer di header');
-  ok(!rq.url.includes('TESTKEY') && !rq.init.body.includes('TESTKEY'), 'kunci TIDAK ada di URL maupun badan permintaan');
-  ok(body.model === 'muse-spark-1.2' && body.max_completion_tokens === 512 && body.messages.length === 2 && body.messages[1].content === 'Halo dunia' && body.messages[0].content.includes('Indonesian to English') && body.reasoning_effort === 'minimal' && !('audio' in body), 'badan: model, batas token keluaran, pesan sistem+pengguna, hanya teks');
-  fetchImpl = () => mkResp(200, { choices: [{ message: { content: 'Hello world' } }] });
-  r = await S.translate('Halo dunia', 'id', 'en'); ok(r.ok && r.text === 'Hello world' && r.engine === 'spark' && fetchCalls.length === 1, 'sukses: teks terbaca, engine=spark, tepat 1 permintaan');
-  r = await S.translate('lagi', 'id', 'en'); ok(r.error === 'too-fast' && fetchCalls.length === 1, 'jeda minimal 1 detik: permintaan beruntun ditolak sebelum dikirim');
-  const cases = [[401, 'key-rejected'], [403, 'key-rejected'], [404, 'endpoint-404'], [400, 'bad-request'], [422, 'bad-request'], [429, 'rate-limited'], [500, 'server-error'], [503, 'server-error'], [418, 'http-418']];
-  for (const [st, er] of cases) { await sleep(1010); fetchImpl = () => mkResp(st, { error: { message: 'pesan dari server ' + 'x'.repeat(400) } }); r = await S.translate('Halo', 'id', 'en'); ok(!r.ok && r.error === er && r.detail.length <= 200, 'HTTP ' + st + ' -> ' + er + ' (detail ≤ 200 karakter)'); }
-  await sleep(1010); fetchImpl = () => Promise.reject(new TypeError('Failed to fetch')); r = await S.translate('Halo', 'id', 'en'); ok(r.error === 'network', 'jaringan putus -> network (tidak melempar)');
-  await sleep(1010); fetchImpl = () => mkResp(200, { choices: [] }); r = await S.translate('Halo', 'id', 'en'); ok(r.error === 'empty-answer', 'jawaban kosong -> empty-answer');
-  await sleep(1010); fetchImpl = (u, i) => new Promise((res, rej) => i.signal.addEventListener('abort', () => { const e = new Error('abort'); e.name = 'AbortError'; rej(e); })); S.setConfig({}); ls.gw_spark_cfg = JSON.stringify({}); 
-  const realST = global.setTimeout; global.setTimeout = (f, ms) => realST(f, ms === 20000 ? 40 : ms); r = await S.translate('Halo', 'id', 'en'); global.setTimeout = realST; ok(r.error === 'timeout', 'server tak menjawab -> timeout (AbortController)');
-  await sleep(1010); fetchImpl = () => mkResp(200, { choices: [{ message: { content: [{ type: 'text', text: 'Bagian ' }, { type: 'text', text: 'dua' }] } }] }); r = await S.translate('Halo', 'id', 'en'); ok(r.ok && r.text === 'Bagian dua', 'konten berbentuk array bagian dibaca');
-  S.clearKey(); ok(!S.hasKey() && !('gw_spark_key' in ls), 'hapus kunci benar-benar menghapus dari penyimpanan');
-
   // ---------- 5. router ----------
-  const n0 = fetchCalls.length; S.enable(true); S.setKey('mk-TESTKEY-1234567890');
+  const n0 = fetchCalls.length;
   global.AndroidLlama = undefined; r = await T.translate('Terima kasih', 'id', 'su', { engine: 'auto' });
   ok(r.ok && r.engine === 'dict' && r.fellBack === true && r.text === 'Hatur nuhun', 'auto tanpa Llama -> kamus, ditandai fellBack');
   global.AndroidLlama = mkBridge({ nativeLib: true, modelPresent: true, modelPath: '/m', modelBytes: 1 }); const rb = global.AndroidLlama;
   let ap = T.translate('Terima kasih', 'id', 'en'); await sleep(5); global.__gwLlamaResult(rb.calls[0].id, JSON.stringify({ ok: true, text: 'Thank you' })); r = await ap; ok(r.engine === 'llama' && r.text === 'Thank you' && !r.fellBack, 'auto dengan Llama siap -> engine=llama');
   ap = T.translate('Terima kasih', 'id', 'en'); await sleep(5); global.__gwLlamaResult(rb.calls[1].id, JSON.stringify({ ok: false, error: 'x' })); r = await ap; ok(r.engine === 'dict' && r.fellBack && r.llamaError === 'llama-failed', 'auto: Llama gagal -> kamus, galat Llama dilaporkan');
-  ok(fetchCalls.length === n0, 'mode auto TIDAK PERNAH memakai jaringan, walau online dinyalakan dan kunci ada');
+  ok(fetchCalls.length === n0, 'terjemah TIDAK PERNAH memakai jaringan (semua mesin offline)');
   r = await T.translate('Halo', 'id', 'en', { engine: 'dict' }); ok(r.engine === 'dict' && (await T.translate('a', 'id', 'en', { engine: 'zzz' })).error === 'bad-engine', 'engine eksplisit dict / engine tidak dikenal');
 
   // ---------- 6. integrasi index.html, sw.js, build ----------
   const HTML = rd('www/index.html'), SW = rd('www/sw.js'), trm = /var TR_MODS = \[([^\]]+)\]/.exec(HTML);
   const mods = trm ? trm[1].match(/lib\/[a-z\/-]+\.js/g) : [];
-  ok(mods.length === 7 && mods.every(m => fs.existsSync(path.join(LIB, m.slice(4))) && fs.existsSync(path.join(ROOT, 'www', m)) && SW.includes("'" + m + "'")), 'index.html memuat 7 modul lib: ada di src/lib, di www/lib, dan di cache sw.js');
+  ok(mods.length === 6 && mods.every(m => fs.existsSync(path.join(LIB, m.slice(4))) && fs.existsSync(path.join(ROOT, 'www', m)) && SW.includes("'" + m + "'")), 'index.html memuat 6 modul lib terjemah: ada di src/lib, di www/lib, dan di cache sw.js');
   ok(mods.every(m => fs.readFileSync(path.join(LIB, m.slice(4)), 'utf8') === rd('www/' + m)), 'www/lib identik dengan src/lib');
   const blk = HTML.slice(HTML.indexOf('[LABEL AI / v1.5.0 / OFFLINE]'));
   ok(/gwTranslateOpen/.test(blk) && !/fetch\(|api\.meta|Authorization/.test(blk), 'blok AI hanya punya tombol + pemuat; tidak ada kode jaringan di index.html');
   ok((HTML.match(/loadTranslate\(/g) || []).length === 2 && /btn\('Buka Terjemah', function\(\)\{ loadTranslate\(\)/.test(HTML), 'loadTranslate() hanya didefinisikan + dipanggil dari tombol "Buka Terjemah" (modul online tidak dimuat saat start)');
-  { const v = JSON.parse(rd('package.json')).version.split('.').map(Number); ok(v[0] > 1 || (v[0] === 1 && v[1] >= 6), 'package.json versi >= 1.6.0 (fitur terjemah ada sejak 1.6.0)'); }
+  { const v = JSON.parse(rd('package.json')).version.split('.').map(Number); ok(v[0] > 1 || (v[0] === 1 && v[1] >= 6), 'package.json versi >= 1.6.0'); }
   ok(fs.existsSync(path.join(ROOT, 'native-patches', 'LlamaBridge.java')) && rd('native-patches/HtmlKeyboardService.java').includes('"AndroidLlama"') && /LlamaBridge\.java/.test(rd('.github/workflows/android-build.yml')) && /build:web|sync-lib/.test(rd('.github/workflows/android-build.yml')), 'build: LlamaBridge disalin, didaftarkan sebagai AndroidLlama, lib disinkronkan di workflow');
   ok(rd('.github/workflows/android-build.yml') === rd('workflows/android-build.yml'), '.github/workflows dan workflows/ identik');
 
@@ -110,14 +85,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   global.document = { head: new El('head'), body: new El('body'), createElement: t => new El(t), getElementById: id => byId[id] || null };
   delete global.gwTranslateOpen; (0, eval)(fs.readFileSync(path.join(LIB, 'ui', 'translate-panel.js'), 'utf8'));
   ok(typeof global.gwTranslateOpen === 'function', 'panel terdaftar (gwTranslateOpen)');
-  global.AndroidLlama = undefined; S.clearKey(); S.enable(false); global.gwTranslateOpen();
-  ok(byId.gwTrPanel.style.display === 'block' && /Llama offline: belum siap/.test(byId['gwtr-status'].textContent) && /Spark online: mati/.test(byId['gwtr-status'].textContent) && /kunci belum ada/.test(byId['gwtr-status'].textContent), 'panel menampilkan status jujur: Llama belum siap, Spark mati, kunci belum ada');
+  global.AndroidLlama = undefined; global.gwTranslateOpen();
+  ok(byId.gwTrPanel.style.display === 'block' && /Llama offline: belum siap/.test(byId['gwtr-status'].textContent) && !/Spark|online/i.test(byId['gwtr-status'].textContent), 'panel menampilkan status jujur: Llama belum siap, kamus siap, tidak ada mesin online');
   byId['gwtr-in'].value = 'Terima kasih'; byId['gwtr-from'].value = 'id'; byId['gwtr-to'].value = 'jv'; byId['gwtr-go'].click(); await sleep(20);
   ok(byId['gwtr-out'].textContent === 'Matur nuwun' && /Kamus offline/.test(byId['gwtr-note'].textContent) && /Llama belum siap/.test(byId['gwtr-note'].textContent), 'klik Terjemahkan: hasil kamus + keterangan mesin + alasan fallback');
   const bn = n => { const q = [byId.gwTrPanel]; while (q.length) { const e = q.shift(); if (e.tag === 'button' && e._text === n) return e; q.push(...e.children); } };
-  const spBtn = bn('Spark online'); spBtn.click(); byId['gwtr-go'].click(); await sleep(20);
-  ok(/Mode online belum dinyalakan/.test(byId['gwtr-note'].textContent) && fetchCalls.length === n0, 'pilih Spark saat mati: pesan jelas, 0 jaringan');
-  const walkEls = e => [e].concat(...e.children.map(walkEls)); ok(walkEls(byId.gwTrPanel).filter(e => e.tag === 'input' && e.type === 'password').length === 1, 'kolom kunci bertipe password');
+  ok(!bn('Spark online') && !!bn('Llama offline') && !!bn('Kamus offline') && fetchCalls.length === n0, 'pilihan mesin hanya Otomatis/Llama/Kamus (tidak ada Spark online); 0 jaringan');
+  const walkEls = e => [e].concat(...e.children.map(walkEls)); ok(walkEls(byId.gwTrPanel).filter(e => e.tag === 'input' && e.type === 'password').length === 0, 'panel terjemah tidak punya kolom kunci (tidak ada mesin online)');
 
   console.log(fail ? '\n' + fail + ' dari ' + total + ' GAGAL' : '\nSEMUA LULUS (' + total + ' pemeriksaan terjemah)'); process.exit(fail ? 1 : 0);
 })().catch(e => { console.log('ERROR UJI:', e); process.exit(1); });

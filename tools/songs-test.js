@@ -23,7 +23,7 @@ ok(/removeSong[\s\S]*resolveFile\(id\)/.test(BR) && !/forgetFolder[\s\S]{0,400}\
 ok(/id="songsBtn"/.test(HTML) && /player\/songplayer\.js/.test(HTML) && /window\.gwMicHold\s*=/.test(HTML), 'index.html: tombol Lagu offline, pemuat lazy, dan gwMicHold ada');
 ok(/onKeyboardShown\s*=\s*function\(\)\{[^}]*!_songHoldsMic/.test(HTML) && /_kbVisible && !_songHoldsMic\) startMic/.test(HTML), 'mic tidak hidup sendiri (keyboard muncul / retry) selama lagu berbunyi');
 ok(!/<script[^>]*player\/songplayer/.test(HTML), 'modul lagu tidak dimuat otomatis (hanya saat tombol diketuk)');
-ok(SW.includes("'player/songplayer.js'") && SW.includes("'player/cloud.js'") && /cache-v(\d+)/.test(SW) && +SW.match(/cache-v(\d+)/)[1] >= 33, 'sw.js menyimpan songplayer.js + cloud.js dan versi cache dinaikkan');
+ok(SW.includes("'player/songplayer.js'") && /cache-v(\d+)/.test(SW) && +SW.match(/cache-v(\d+)/)[1] >= 33, 'sw.js menyimpan songplayer.js dan versi cache dinaikkan');
 for (const wf of ['.github/workflows/android-build.yml', 'workflows/android-build.yml']) { const y = rd(wf);
   ok(y.includes('SongPlayerBridge.java') && y.includes('SongPickerActivity.java') && y.includes('insert_activity.py'), wf + ': menempel 2 berkas Java + mendaftarkan activity'); }
 ok(rd('.github/workflows/android-build.yml') === rd('workflows/android-build.yml'), 'dua salinan workflow identik');
@@ -150,21 +150,6 @@ ok(S.errText('unsupported-or-unreadable').includes('tidak didukung') && S.errTex
   ok(!!last('stop'), 'opsi "hentikan saat keyboard ditutup" -> native.stop() saat keyboard disembunyikan');
   cb[1].checked = false; cb[1].fire('change'); calls.length = 0; window.gwSongsOnHidden(); ok(!last('stop'), 'tanpa opsi itu, lagu terus main saat keyboard ditutup');
   ok(JSON.parse(localStorage.getItem('gw_songs_prefs_v1')).holdMic === true, 'pengaturan tersimpan di localStorage');
-
-  // cadangan cloud (GWCLOUD palsu: logika sungguhan diuji di tools/cloud-test.js)
-  const tk = () => new Promise(r => setTimeout(r, 15)); let cloudOn = false; const cc = [];
-  global.GWCLOUD = { isEnabled: () => cloudOn, setEnabled: b => { cloudOn = !!b; return cloudOn; }, deviceId: () => 'abcdefghijklmnopqrst', message: c => 'PESAN:' + c,
-    backup: async sg => { cc.push(['backup', sg.length]); return cloudOn ? { ok: true, total: sg.length, written: 2, deleted: 1 } : { ok: false, error: 'disabled' }; },
-    list: async () => { cc.push(['list']); return { ok: true, items: [{ title: 'Satu' }, { title: 'Lagu Hilang' }] }; }, wipe: async () => { cc.push(['wipe']); return { ok: true, deleted: 2 }; } };
-  ok(P.textContent.includes('Cadangan daftar lagu') && P.textContent.includes('MATI') && P.textContent.includes('Memutar lagu tetap 100% offline'), 'bagian cadangan ada, bawaan MATI, menjelaskan apa yang dikirim');
-  buttons('Cadangkan sekarang')[0].click(); await tk(); ok(P.textContent.includes('PESAN:disabled') && cc.length === 1, 'cadangkan saat mati -> ditolak oleh modul, pesan tampil');
-  cc.length = 0; buttons('Nyalakan cadangan')[0].click(); await tk(); ok(!cloudOn && buttons('Yakin? Judul lagu akan dikirim ke Google').length === 1, 'menyalakan: ketukan pertama hanya minta konfirmasi');
-  buttons('Yakin? Judul lagu akan dikirim ke Google')[0].click(); await tk(); ok(cloudOn && P.textContent.includes('NYALA') && buttons('Matikan cadangan').length === 1, 'ketukan kedua menyalakan');
-  buttons('Cadangkan sekarang')[0].click(); await tk(); ok(P.textContent.includes('✓ Tercadang: 3 lagu') && cc[0][0] === 'backup', 'cadangkan: daftar lagu diserahkan, ringkasan tampil');
-  buttons('Lihat cadangan')[0].click(); await tk(); ok(P.textContent.includes('✓ Satu') && P.textContent.includes('— Lagu Hilang') && P.textContent.includes('audionya tidak ikut'), 'lihat cadangan: menandai yang ada / tidak ada di HP ini');
-  const wp = buttons('Hapus cadangan saya')[0]; cc.length = 0; wp.click(); await tk(); ok(!cc.length, 'hapus cadangan: ketukan pertama tidak menghapus'); wp.click(); await tk(); ok(cc[0] && cc[0][0] === 'wipe' && P.textContent.includes('2 entri cadangan dihapus'), 'hapus cadangan: ketukan kedua menghapus');
-  buttons('Matikan cadangan')[0].click(); await tk(); ok(!cloudOn && P.textContent.includes('Cadangan dimatikan'), 'mematikan cadangan cukup satu ketukan');
-  delete global.GWCLOUD;
 
   // tanpa jembatan native (APK lama / peramban)
   window.gwSongsClose(); ok(P.style.display === 'none', 'Tutup menyembunyikan panel');
