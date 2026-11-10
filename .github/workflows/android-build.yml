@@ -31,7 +31,7 @@ jobs:
       - name: Install dependency npm
         run: npm install
 
-      # src/lib (Llama offline, kamus, Muse Spark online) -> www/lib, karena Capacitor hanya mengemas folder www/
+      # src/lib (Llama offline, kamus, lirik Gemini online opsional) -> www/lib, karena Capacitor hanya mengemas folder www/
       - name: Sinkronkan src/lib ke www/lib
         run: npm run build:web
 
