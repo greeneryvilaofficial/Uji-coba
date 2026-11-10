@@ -1,6 +1,6 @@
 /* ============================================================================================
  * [LABEL GWTR / PANEL] src/lib/ui/translate-panel.js
- * Panel "Terjemah": pilih bahasa + mesin (Otomatis / Llama offline / Kamus offline / Spark online).
+ * Panel "Terjemah": pilih bahasa + mesin (Otomatis / Llama offline / Kamus offline) — semuanya offline.
  * Warna 100% dari variabel CSS keyboard (ikut tema). Keluaran selalu lewat textContent.
  * window.gwTranslateOpen() / window.gwTranslateClose()
  * ============================================================================================ */
@@ -12,10 +12,7 @@
 
   var MSG = {
     'empty': 'Ketik teks dulu.', 'same-lang': 'Bahasa asal dan tujuan sama.', 'too-long': 'Terlalu panjang (maks ' + C.MAX_CHARS + ' karakter).',
-    'llama-unavailable': 'Llama offline belum siap di HP ini.', 'online-disabled': 'Mode online belum dinyalakan.', 'no-key': 'Belum ada kunci API.',
-    'key-rejected': 'Kunci ditolak server (401/403).', 'endpoint-404': 'Alamat endpoint tidak ditemukan (404).', 'bad-request': 'Permintaan ditolak (400/422): cek nama model atau kosongkan "reasoning".',
-    'rate-limited': 'Kena batas laju (429). Tunggu sebentar.', 'server-error': 'Server sedang bermasalah (5xx).', 'timeout': 'Waktu habis.', 'network': 'Tidak ada koneksi.',
-    'busy': 'Masih memproses permintaan sebelumnya.', 'too-fast': 'Terlalu cepat; tunggu 1 detik.', 'bad-key': 'Kunci tidak valid.', 'bad-endpoint': 'Endpoint tidak valid.'
+    'llama-unavailable': 'Llama offline belum siap di HP ini.', 'busy': 'Masih memproses permintaan sebelumnya.', 'timeout': 'Waktu habis.'
   };
   function msg(r) { var m = MSG[r.error] || ('Gagal: ' + r.error); return r.detail ? m + ' (' + r.detail + ')' : m; }
   function $(id) { return doc.getElementById(id); }
@@ -53,36 +50,23 @@
     from.value = 'id'; to.value = 'en'; row.appendChild(from); btn('⇄', function () { var a = from.value; from.value = to.value; to.value = a; }, null, row); row.appendChild(to);
 
     var chips = el('div', null, 'chips'), cb = {};
-    [['Otomatis', 'auto'], ['Llama offline', 'llama'], ['Kamus offline', 'dict'], ['Spark online', 'spark']].forEach(function (m) {
+    [['Otomatis', 'auto'], ['Llama offline', 'llama'], ['Kamus offline', 'dict']].forEach(function (m) {
       cb[m[1]] = btn(m[0], function () { engine = m[1]; Object.keys(cb).forEach(function (k) { cb[k].className = ''; }); cb[m[1]].className = 'on'; refresh(); }, null, chips); });
     cb.auto.className = 'on';
-    el('div', 'Otomatis = Llama offline bila siap, kalau tidak kamus offline. Online TIDAK pernah dipakai otomatis.', 'hint');
+    el('div', 'Otomatis = Llama offline bila siap, kalau tidak kamus offline. Semua mesin di sini offline.', 'hint');
 
     field('textarea', 'gwtr-in', 'Ketik teks (maks ' + C.MAX_CHARS + ' karakter)', null, C.MAX_CHARS);
     btn('Terjemahkan', run, 'gwtr-go');
     btn('Ketik hasil', function () { if (last && last.ok && root.AndroidKeyboard && root.AndroidKeyboard.commitText) { try { root.AndroidKeyboard.commitText(last.text); } catch (e) {} } }, 'gwtr-type');
     var out = el('pre', 'Hasil terjemahan tampil di sini.'); out.id = 'gwtr-out';
     el('div', '', 'hint').id = 'gwtr-note';
-
-    el('h4', 'Spark online (opsional, kunci milikmu sendiri)');
-    el('div', 'Jika dinyalakan, HANYA teks di kotak di atas dikirim ke Meta Model API saat kamu menekan Terjemahkan dengan mesin "Spark online". Kunci disimpan di HP ini saja.', 'hint');
-    field('input', 'gwtr-key', 'API key Meta Model API', 'password', 300);
-    field('input', 'gwtr-model', 'Model (kosong = bawaan)', 'text', 60);
-    btn('Simpan kunci/model', function () {
-      var k = $('gwtr-key').value; if (k) { var r = NS.spark.setKey(k); if (!r.ok) { setText('gwtr-note', msg(r)); return; } $('gwtr-key').value = ''; }
-      var r2 = NS.spark.setConfig({ model: $('gwtr-model').value.trim() }); setText('gwtr-note', r2.ok ? 'Tersimpan.' : msg(r2)); refresh(); });
-    btn('Hapus kunci', function () { NS.spark.clearKey(); setText('gwtr-note', 'Kunci dihapus dari HP ini (cabut juga di dashboard Meta bila pernah bocor).'); refresh(); });
-    btn('Nyalakan/matikan online', function () { NS.spark.enable(!NS.spark.isOn()); refresh(); }, 'gwtr-toggle');
-    btn('Tes koneksi', function () { setText('gwtr-note', 'Menguji…'); NS.spark.test().then(function (r) { setText('gwtr-note', r.ok ? 'Tersambung (' + r.ms + ' ms).' : msg(r)); }); });
   }
 
   function refresh() {
     var parts = [], st = NS.llama ? NS.llama.status() : { available: false, text: 'modul Llama tidak dimuat' };
     parts.push('Llama offline: ' + (st.available ? 'siap ✓' : 'belum siap — ' + st.text));
     parts.push('Kamus offline: siap ✓ (' + (NS.dict ? NS.dict.size() : 0) + ' entri benih)');
-    parts.push('Spark online: ' + (NS.spark.isOn() ? 'NYALA' : 'mati') + ' · kunci ' + (NS.spark.hasKey() ? NS.spark.keyHint() : 'belum ada'));
     setText('gwtr-status', parts.join('\n'));
-    var cfg = NS.spark.getConfig(), m = $('gwtr-model'); if (m && !m.value && cfg.model !== NS.spark.DEFAULTS.model) m.value = cfg.model; if (m) m.placeholder = 'Model (bawaan: ' + NS.spark.DEFAULTS.model + ')';
   }
 
   function run() {
@@ -91,7 +75,7 @@
       last = r; go.disabled = false;
       if (!r.ok) { setText('gwtr-out', ''); setText('gwtr-note', '✗ ' + msg(r)); return; }
       setText('gwtr-out', r.text);
-      var label = r.engine === 'llama' ? 'Meta Llama (offline, di perangkat)' : r.engine === 'spark' ? 'Muse Spark (ONLINE)' : 'Kamus offline (kata-per-kata)';
+      var label = r.engine === 'llama' ? 'Meta Llama (offline, di perangkat)' : 'Kamus offline (kata-per-kata)';
       setText('gwtr-note', 'Mesin: ' + label + (r.fellBack ? ' — Llama belum siap, jadi memakai kamus' : '') + (r.note ? '\n' + r.note : ''));
     });
   }
