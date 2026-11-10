@@ -1,7 +1,7 @@
 /* ============================================================================================
  * [LABEL GWTR / CORE] src/lib/core.js  (v1.6.0)
  * Namespace GWTR: daftar bahasa, validasi input, prompt terjemahan, pembersih keluaran.
- * TIDAK ADA jaringan di berkas ini. Hanya src/lib/online/spark.js yang boleh menyentuh jaringan.
+ * TIDAK ADA jaringan di berkas ini. Hanya src/lib/online/gemini.js (lirik lagu, opsional) yang boleh menyentuh jaringan.
  * ============================================================================================ */
 (function (root) {
   'use strict';
@@ -29,7 +29,7 @@
     return { ok: true, text: t };
   }
 
-  /* Prompt dipakai bersama oleh Llama (offline) dan Muse Spark (online). Bahasa Inggris supaya model kecil patuh. */
+  /* Prompt untuk Llama (offline). Bahasa Inggris supaya model kecil patuh. */
   function systemPrompt(from, to) {
     return 'You are a translation engine. Translate the user\'s text from ' + LANGS[from].en + ' to ' + LANGS[to].en +
       '. Output ONLY the translation: no quotes, no notes, no explanations. Keep names, numbers and emoji unchanged.';
@@ -43,6 +43,6 @@
     return t.slice(0, MAX_CHARS * 4);
   }
 
-  NS.version = '1.6.0';
+  NS.version = '1.8.0';
   NS.core = { LANGS: LANGS, MAX_CHARS: MAX_CHARS, fail: fail, done: done, isLang: isLang, checkInput: checkInput, systemPrompt: systemPrompt, cleanOutput: cleanOutput };
 })(typeof window !== 'undefined' ? window : globalThis);
