@@ -1,0 +1,28 @@
+rules_version = '2';
+
+// Aturan yang disarankan untuk cadangan daftar lagu Guitarwiter (v1.7.1).
+// Menggantikan aturan awal "allow read, write: if request.time < timestamp.date(2026, 12, 10)" yang
+//   (a) membuka SELURUH database untuk siapa pun yang tahu projectId, dan
+//   (b) berhenti berlaku 10 Des 2026 (setelah itu semua cadangan gagal 403).
+// Cara pasang: Firebase Console -> Firestore Database -> Rules -> tempel -> Publish. (Belum diuji terhadap emulator.)
+//
+// Batas yang JUJUR: aplikasi tidak memakai Firebase Auth, jadi aturan tidak bisa membedakan pemilik dari orang lain.
+// Yang dilakukan aturan ini: hanya jalur devices/{id}/songs/{doc}; id harus 20 karakter acak (tidak bisa ditebak/diurutkan,
+// daftar /devices ditolak); isi dokumen dibatasi ke 4 kolom kecil. Penyalahgunaan kuota oleh pihak lain tetap mungkin —
+// solusi sebenarnya: Firebase App Check + Anonymous Auth lalu ganti aturan ke request.auth.uid.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /devices/{deviceId}/songs/{songId} {
+      allow get, list, delete: if deviceId.matches('[a-z0-9]{20}');
+      allow create, update: if deviceId.matches('[a-z0-9]{20}')
+        && request.resource.data.keys().hasOnly(['title', 'src', 'bytes', 'updatedAt'])
+        && request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 200
+        && request.resource.data.src is string && request.resource.data.src.size() <= 80
+        && request.resource.data.bytes is int && request.resource.data.bytes >= 0
+        && request.resource.data.updatedAt is timestamp;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
