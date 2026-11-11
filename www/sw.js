@@ -3,7 +3,7 @@
 // dimuat walau tanpa koneksi internet (penting karena WebView keyboard
 // akan sering dibuka tanpa jaringan aktif).
 
-const CACHE_NAME = 'genjreng-ketik-cache-v34'; // v1.8.0: Muse Spark online diganti Gemini untuk lirik lagu (lib/online/gemini.js, lib/offline/lyrics-store.js, lib/ui/lyrics-panel.js); v1.7.0: pemutar lagu offline (player/songplayer.js + folder lokal); v1.6.0: modul terjemah (lib/: Llama offline, kamus, Muse Spark online opsional); v1.5.1: panel ikut tema keyboard + diagnosis modul; v1.5.0: semua AI offline (tanpa API); v1.4.7: Wonder lewat endpoint chat + model wajib; v1.4.6: Wonder hemat (melodi lokal, jatah 1x, saklar mati); v1.4.5: kolom API Key/Endpoint/Test Connection; v1.4.0: modul AI (Muse); (v1.3.9 petikan gitar dihapus); v1.3.8: pembanding harmonik terkuat, zona rendah lebih cepat; v1.3.7: turun oktaf butuh harmonik ganjil (p/a/s tidak lagi jadi angka)
+const CACHE_NAME = 'genjreng-ketik-cache-v35'; // v1.9.0: Fitur cerdas + Terjemah + Lirik AI satu mesin Gemini (opsional) dengan navbar bersama; v1.8.0: Muse Spark online diganti Gemini untuk lirik lagu (lib/online/gemini.js, lib/offline/lyrics-store.js, lib/ui/lyrics-panel.js); v1.7.0: pemutar lagu offline (player/songplayer.js + folder lokal); v1.6.0: modul terjemah (lib/: Llama offline, kamus, Muse Spark online opsional); v1.5.1: panel ikut tema keyboard + diagnosis modul; v1.5.0: semua AI offline (tanpa API); v1.4.7: Wonder lewat endpoint chat + model wajib; v1.4.6: Wonder hemat (melodi lokal, jatah 1x, saklar mati); v1.4.5: kolom API Key/Endpoint/Test Connection; v1.4.0: modul AI (Muse); (v1.3.9 petikan gitar dihapus); v1.3.8: pembanding harmonik terkuat, zona rendah lebih cepat; v1.3.7: turun oktaf butuh harmonik ganjil (p/a/s tidak lagi jadi angka)
 const CORE_ASSETS = [
   'index.html',
   'ai/ai-core.js',
@@ -56,15 +56,20 @@ self.addEventListener('activate', (event) => {
 });
 
 // Strategi: coba ambil dari cache dulu, kalau tidak ada baru ke jaringan.
+// HANYA untuk GET satu-origin (berkas aplikasi sendiri). POST / lintas-origin (mis. Lirik AI & Terjemah ke Gemini)
+// tidak disentuh: langsung ke jaringan, jadi saat offline panel menerima galat jaringan yang benar,
+// bukan index.html berstatus 200 yang terbaca sebagai "jawaban kosong".
 self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
+    caches.match(req).then((cached) => {
       return (
         cached ||
-        fetch(event.request).catch(() => {
-          // Kalau offline dan tidak ada di cache, minimal index.html tetap bisa dibuka.
-          return caches.match('index.html');
-        })
+        fetch(req).catch(() =>
+          // Offline: hanya pembukaan halaman yang jatuh ke index.html; sub-berkas lain gagal apa adanya.
+          req.mode === 'navigate' ? caches.match('index.html') : Response.error()
+        )
       );
     })
   );

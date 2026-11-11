@@ -2286,7 +2286,7 @@
       { k:'haptic', t:'Getaran keyboard', s:'Getar saat tombol ditekan' },
       { k:'popup', t:'Pop-up tombol', s:'Tampilkan pratinjau huruf saat tombol ditekan' } ] },
     { title:'Eksperimental', items:[
-      { k:'ai', t:'Fitur cerdas (offline)', s:'Ubah tab dengan perintah, chord jadi lagu + lirik, humming jadi lagu, perpustakaan tab. Semua di HP: tanpa internet, tanpa API' } ] },
+      { k:'ai', t:'Fitur cerdas (offline + Gemini)', s:'Ubah tab dengan perintah, chord jadi lagu + lirik, humming jadi lagu, perpustakaan tab. Semua jalan offline di HP; tombol ☁ Gemini opsional (kunci milikmu, mati bawaan)' } ] },
     { title:'Koreksi & saran', items:[
       { k:'autocorrect', t:'Koreksi otomatis', s:'Perbaiki salah ketik saat spasi atau tanda baca' },
       { k:'autocaps', t:'Huruf besar otomatis', s:'Huruf besar di awal kalimat' },
@@ -2307,7 +2307,7 @@
     { id:'dict',  icon:'spell',     t:'Kamus', s:() => 'Kelola kata pribadi' },
     { id:'clip',  icon:'clipboard', t:'Papan klip', s:() => 'Riwayat salinan' },
     { id:'share', icon:'share',     t:'Bagikan Guitarwiter', s:() => 'Ajak teman mencoba' },
-    { id:'ai',    icon:'palette',   t:'Panel cerdas (offline)', s:() => prefs.ai ? 'Ubah tab, chord→lagu, humming→lagu, tab lagu' : 'Nyalakan dulu di Eksperimental' },
+    { id:'ai',    icon:'palette',   t:'Panel cerdas (offline + Gemini)', s:() => prefs.ai ? 'Ubah tab, chord→lagu, humming→lagu, tab lagu' : 'Nyalakan dulu di Eksperimental' },
   ];
   // Menerapkan pilihan yang punya efek langsung ke tampilan.
   function updateNumRow(){
@@ -4733,6 +4733,16 @@
     loadLyrics().then(ok => { if(ok) window.gwLyricsOpen(); else showStatus('❌ Modul Lirik AI gagal dimuat (folder www/lib/ tidak ikut di APK). Pasang ulang APK dari build terbaru.'); });
   });
 
+  // ---------------- [LABEL GWNAV] navbar bersama ✍ Lirik · 🎸 Cerdas · 🌐 Terjemah: satu mesin Gemini (kunci/saklar/model) untuk ketiganya ----------------
+  window.gwLoadGemini = loadLyrics;   // memuat core + gemini + penyimpanan lirik + panel Lirik (aset lokal, tanpa jaringan)
+  window.gwNav = function(name){
+    if(name === 'smart' && !prefs.ai){ showStatus('Nyalakan "Fitur cerdas (offline + Gemini)" di Setelan → Eksperimental dulu.'); return; }
+    ['gwLyricsClose','gwTranslateClose','gwaiClose'].forEach(f => { try{ if(window[f]) window[f](); }catch(e){} });
+    if(name === 'lyrics') loadLyrics().then(ok => ok ? window.gwLyricsOpen() : showStatus('❌ Modul Lirik AI gagal dimuat. Pasang ulang APK dari build terbaru.'));
+    else if(name === 'translate') (window.gwLoadTranslate ? window.gwLoadTranslate() : Promise.resolve(false)).then(ok => ok ? window.gwTranslateOpen() : showStatus('❌ Modul terjemah gagal dimuat. Pasang ulang APK dari build terbaru.'));
+    else if(name === 'smart' && window.gwaiOpen) window.gwaiOpen();
+  };
+
   // ---------------- [LABEL SONGS / PEMUAT] pemutar lagu offline: skrip dimuat HANYA saat tombol "Lagu offline" diketuk ----------------
   let songsLoading = null;
   function loadSongs(){
@@ -4809,7 +4819,7 @@
   function loadFailMsg(){ return 'Modul gagal dimuat: ' + (failedSrc || 'tidak diketahui') + '.\nPenyebab paling mungkin: folder www/ai/ belum ikut di-push ke GitHub / belum ikut di-build ke APK. Pasang ulang APK dari build terbaru.'; }
   function showStatus(){ var e = $('gwai-status'); if(!e) return; e.textContent = loaded ? 'Modul: ' + MODS.length + '/' + MODS.length + ' dimuat ✓ (v' + G().version + ')' : 'Modul: ' + loadedCount + '/' + MODS.length + ' dimuat — gagal di ' + (failedSrc || '?'); }
   /* ---------- [LABEL GWTR / PEMUAT] modul terjemah (src/lib -> www/lib): dimuat HANYA saat tombol "Buka Terjemah" ditekan ---------- */
-  var TR_MODS = ['lib/core.js','lib/offline/dict-data.js','lib/offline/dict-engine.js','lib/offline/llama.js','lib/router.js','lib/ui/translate-panel.js'], trLoading = null, trFailed = '';
+  var TR_MODS = ['lib/core.js','lib/offline/dict-data.js','lib/offline/dict-engine.js','lib/offline/llama.js','lib/online/gemini.js','lib/router.js','lib/ui/translate-panel.js'], trLoading = null, trFailed = '';
   function loadTranslate(){
     if(window.gwTranslateOpen) return Promise.resolve(true);
     if(trLoading) return trLoading;
@@ -4819,6 +4829,7 @@
       .then(function(ok){ trLoading = null; return ok && !!window.gwTranslateOpen; });
     return trLoading;
   }
+  window.gwLoadTranslate = loadTranslate;   // dipakai navbar bersama (gwNav)
   window.gwaiDiag = function(){ return { loaded: loaded, count: loadedCount, total: MODS.length, failed: failedSrc, version: G() ? G().version : null }; };
   function setup(){
     document.addEventListener('gw:tab-changed', function(e){ showTab(e.detail && e.detail.tab); });
@@ -4843,6 +4854,46 @@
   }
   window.makeItBluesy = function(){ return runSpark('bikin lebih bluesy'); };
   window.onSparkTrigger = function(preset){ var t = PRESETS[preset]; if(!t || !aiOn()) return; window.gwaiOpen(); runSpark(t); };
+
+  /* ---------- [LABEL GEMINI / TAUTAN] tombol ☁: mesin Gemini yang SAMA dengan panel "✍ Lirik" (satu kunci, satu saklar, satu model).
+     Kode jaringan ada HANYA di lib/online/gemini.js; blok ini hanya memanggilnya, jadi tidak ada fetch/URL di index.html. Tidak ada panggilan otomatis. ---------- */
+  function gem(){ return (window.GWTR && window.GWTR.gemini) || null; }
+  function gemLoad(){ return window.gwLoadGemini ? window.gwLoadGemini() : Promise.resolve(false); }
+  function gemStatus(){
+    var g = gem();
+    setText('gwai-gem', g ? 'Gemini online: ' + (g.isOn() ? 'NYALA' : 'mati') + ' · kunci ' + (g.hasKey() ? g.keyHint() : 'belum ada') + ' (atur di ✍ Lirik)' : 'Gemini online: belum dimuat (atur di ✍ Lirik)');
+  }
+  function gemMsg(r){ var C = window.GWTR && window.GWTR.core, m = (C && C.GEM_MSG && C.GEM_MSG[r.error]) || MSG[r.error] || ('Gagal: ' + r.error); return r.detail ? m + ' (' + r.detail + ')' : m; }
+  function geminiCmd(text){
+    setText('gwai-cmdres', 'Menanyakan Gemini…');
+    return gemLoad().then(function(ok){
+      if(!ok || !gem()){ setText('gwai-cmdres', '✗ Modul Gemini gagal dimuat. Pasang ulang APK dari build terbaru.'); return; }
+      gemStatus();
+      return gem().command(text).then(function(r){
+        gemStatus();
+        if(!r.ok){ setText('gwai-cmdres', '✗ ' + gemMsg(r)); return; }
+        return runSpark(r.text).then(function(){ var e = $('gwai-cmdres'); if(e) e.textContent = '☁ Gemini memilih: ' + r.actions.join(' + ') + '\n' + e.textContent; });
+      });
+    });
+  }
+  function geminiLyrics(chordText){
+    var toks = String(chordText == null ? '' : chordText).split(/[\s,|]+/).filter(Boolean);
+    if(!toks.length){ setText('gwai-lirik', '✗ Isi akor dulu, mis. Em C G D.'); return Promise.resolve(); }
+    setText('gwai-lirik', 'Menanyakan Gemini…'); setText('gwai-band', '');
+    return Promise.all([load(), gemLoad()]).then(function(oks){
+      if(!oks[1] || !gem()){ setText('gwai-lirik', '✗ Modul Gemini gagal dimuat. Pasang ulang APK dari build terbaru.'); return; }
+      if(oks[0] && G().music && G().music.parseChord){ for(var i = 0; i < toks.length; i++){ if(!G().music.parseChord(toks[i])){ setText('gwai-lirik', '✗ Akor tidak valid: ' + toks[i]); return; } } }
+      gemStatus();
+      var prompt = 'Buat lagu ' + (moodSel === 'galau' ? 'galau' : moodSel === 'ceria' ? 'ceria' : 'dengan suasana yang cocok dengan akornya') + '.';
+      return gem().lyrics(prompt, { chords: toks.join(' ') }).then(function(r){
+        gemStatus();
+        if(!r.ok){ setText('gwai-lirik', '✗ ' + gemMsg(r)); return; }
+        setText('gwai-lirik', '☁ Gemini (' + r.model + ') · akor ' + toks.join(' ') + '\n\n' + r.text);
+        var sv = window.GWTR && window.GWTR.lyrics ? window.GWTR.lyrics.add({ prompt: 'akor: ' + toks.join(' ') + (moodSel ? ' · ' + moodSel : ''), text: r.text, model: r.model }) : { ok: false, error: 'storage-unavailable' };
+        setText('gwai-note', sv.ok ? '✓ Lirik Gemini tersimpan offline di "✍ Lirik" (' + sv.total + ' lagu).' : '⚠ Lirik tampil tapi tidak tersimpan: ' + gemMsg(sv));
+      });
+    });
+  }
 
   /* ---------- [LABEL MUSE SPARK / CHORD -> LAGU OFFLINE] ---------- */
   window.metaGenerate = function(chord){ return Promise.resolve(buildFromChords(chord, false)); };
@@ -4881,6 +4932,7 @@
       var a = r.data.analysis;
       setText('full-song', '♪ ' + r.data.title + '\nKunci ' + a.key + ' · ' + a.tempo + ' bpm · ' + fmtTime(a.seconds) + ' · ' + a.melodyNotes + ' nada humming\nAkor bait: ' + a.verseChords.join(' ') + '\nBagian: ' + a.sections.join(' › '));
       setText('gwai-lirik', r.data.lirik); setText('gwai-band', '');
+      var ci = $('gwai-chords'); if(ci && a.verseChords && a.verseChords.length) ci.value = a.verseChords.slice(0, 16).join(' ');   // tautan ke ②: akor (bukan audio) untuk lirik Gemini
     });
   }
 
@@ -4926,6 +4978,7 @@
       '#gwaiPanel input,#gwaiPanel select{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:10px;background:var(--key-fn-bg);color:var(--key-text);border:1px solid var(--divider);border-radius:var(--key-radius,8px);font:inherit}' +
       '#gwaiPanel input::placeholder{color:var(--muted)}#gwaiPanel input:focus,#gwaiPanel select:focus{outline:none;border-color:var(--key-tag)}' +
       '#gwaiPanel select option{background:var(--key-fn-bg);color:var(--key-text)}' +
+      '#gwaiPanel .gw-nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}#gwaiPanel .gw-nav button{margin:0;border-radius:999px;background:var(--pill-bg);padding:7px 13px;font-size:.9rem}' +
       '#gwaiPanel canvas{width:100%;height:56px;background:var(--key-fn-bg);border:1px solid var(--divider);border-radius:var(--key-radius,8px)}' +
       '#gwaiPanel img{max-width:100%;max-height:200px;display:none;border-radius:var(--key-radius,8px);margin-top:6px;border:1px solid var(--divider)}';
     document.head.appendChild(st);
@@ -4936,25 +4989,30 @@
     function inp(ph, id, max){ var i = document.createElement('input'); i.type = 'text'; i.id = id; i.placeholder = ph; i.maxLength = max || 80; i.autocomplete = 'off'; i.spellcheck = false; panel.appendChild(i); return i; }
     function pre(id, t){ var p = el('pre', t); p.id = id; return p; }
 
-    var head = el('div', null, 'gw-head'), ttl = document.createElement('div'); ttl.className = 'gw-title'; ttl.textContent = '🎸 Fitur cerdas · '; var ob = document.createElement('b'); ob.textContent = 'OFFLINE'; ttl.appendChild(ob); head.appendChild(ttl);
+    var head = el('div', null, 'gw-head'), ttl = document.createElement('div'); ttl.className = 'gw-title'; ttl.textContent = '🎸 Fitur cerdas · '; var ob = document.createElement('b'); ob.textContent = 'OFFLINE + Gemini'; ttl.appendChild(ob); head.appendChild(ttl);
     btn('✕ Tutup', function(){ window.gwaiClose(); }, null, head).className = 'fn';
-    el('div', 'Semua dikerjakan di HP ini: tanpa internet, tanpa API, tanpa kunci.', 'hint');
+    var nav = el('div', null, 'gw-nav');
+    [['lyrics','✍ Lirik'],['smart','🎸 Cerdas'],['translate','🌐 Terjemah']].forEach(function(x){
+      var nb = btn(x[1], function(){ if(x[0] !== 'smart' && window.gwNav) window.gwNav(x[0]); }, null, nav); if(x[0] === 'smart') nb.className = 'on'; });
+    el('div', 'Semua fitur jalan OFFLINE di HP ini. Tombol bertanda ☁ memakai Gemini (online) HANYA bila kamu menyalakannya di "✍ Lirik" dan mengetuk tombolnya; yang dikirim cuma teks perintah / akor yang kamu tulis. Audio humming, isi tab, dan ketikan tidak pernah dikirim.', 'hint');
+    el('div', 'Gemini online: …', 'hint').id = 'gwai-gem';
     el('div', 'Memuat modul…', 'hint').id = 'gwai-status';
     pre('tab-output', 'Tab aktif akan tampil di sini. Buka lagu dari perpustakaan atau buat lagu dari chord.');
     btn('↶ Batalkan', function(){ var r = G() && G().tab.undo(); if(r && !r.ok) setText('gwai-cmdres', msg(r)); });
     btn('Contoh riff', function(){ load().then(function(ok){ if(ok) G().tab.set(G().tab.sample(), 'sample'); }); });
 
-    el('h4', '① Ubah tab (Spark offline)');
-    el('div', 'Ketik perintah atau ketuk gaya. Hasilnya langsung mengubah tab aktif.', 'hint');
+    el('h4', '① Ubah tab (offline + ☁ Gemini)');
+    el('div', 'Ketik perintah atau ketuk gaya. "Terapkan" = penafsir offline. "☁ Pahami dengan Gemini" = Gemini hanya MEMILIH dari daftar perintah yang diizinkan (bluesy, galau, cepat, naik N nada, …); tab tetap diubah oleh editor offline.', 'hint');
     var cmd = inp('mis. "bikin lebih bluesy dan cepat"', 'gwai-cmd', 100);
     var chips = el('div', null, 'chips');
     [['Bluesy','bikin lebih bluesy'],['Galau','buat jadi galau'],['Ceria','bikin ceria'],['Rock','jadi rock'],['Fingerstyle','versi fingerstyle'],['Cepat','lebih cepat'],['Lambat','lebih lambat'],['Naik 2','naikin 2 nada'],['Turun 2','turunin 2 nada'],['Ulang','ulang dua kali']].forEach(function(c){
       btn(c[0], function(){ cmd.value = c[1]; runSpark(c[1]); }, null, chips); });
     btn('Terapkan', function(){ runSpark(cmd.value); });
+    btn('☁ Pahami dengan Gemini', function(){ geminiCmd(cmd.value); }, 'gwai-gcmd');
     el('div', '', 'hint').id = 'gwai-cmdres';
 
-    el('h4', '② Chord → Lagu + lirik');
-    el('div', 'Isi akor (maks 16), mis. Em C G D. Dapat: tab gitar ~3 menit, lirik berakor, tab bass & drum.', 'hint');
+    el('h4', '② Chord → Lagu + lirik (offline + ☁ Gemini)');
+    el('div', 'Isi akor (maks 16), mis. Em C G D. "Buat lagu" (offline): tab gitar ~3 menit, lirik berakor, tab bass & drum. "☁ Lirik Gemini": lirik yang ditulis Gemini untuk akor itu (hanya akor + suasana dikirim); hasilnya otomatis tersimpan di "✍ Lirik".', 'hint');
     var chin = inp('Em C G D', 'gwai-chords', 80);
     var moods = el('div', null, 'chips'), mb = {};
     [['Suasana: otomatis', null], ['Suasana: galau', 'galau'], ['Suasana: ceria', 'ceria']].forEach(function(m){
@@ -4962,11 +5020,12 @@
     mb['Suasana: otomatis'].className = 'on';
     btn('Buat lagu', function(){ load().then(function(){ buildFromChords(chin.value, false); }); });
     btn('Variasi lain', function(){ load().then(function(){ buildFromChords(chin.value, true); }); });
+    btn('☁ Lirik Gemini', function(){ geminiLyrics(chin.value); }, 'gwai-glyr');
     pre('gwai-lirik', 'Lirik & akor akan tampil di sini.');
     pre('gwai-band', '');
 
     el('h4', '③ Humming → Lagu Full (Wonder offline)');
-    el('div', 'Bersenandung 30 detik. Melodi dibaca di HP, lalu disusun jadi lagu ~3 menit (Intro, Verse, Chorus, Bridge, Outro) + lirik.', 'hint');
+    el('div', 'Bersenandung 30 detik. Melodi dibaca di HP, lalu disusun jadi lagu ~3 menit (Intro, Verse, Chorus, Bridge, Outro) + lirik. Selalu offline: audio TIDAK PERNAH dikirim ke Gemini. Akor bait otomatis diisikan ke ② kalau kamu mau lirik dari Gemini.', 'hint');
     btn('Humming 30 dtk → Lagu Full', function(){ window.generateFullSong(); }, 'gwai-wonder');
     pre('full-song', 'Hasil analisis humming akan tampil di sini.');
 
@@ -4980,12 +5039,12 @@
     btn('Segmentasi frasa (SAM)', runSam); btn('Sampul lagu (Image)', runCover);
     var im = document.createElement('img'); im.id = 'gwai-cover'; im.alt = 'Sampul'; panel.appendChild(im);
     el('h4', '⑥ Terjemah (EN · ID · SU · JV)');
-    el('div', 'Meta Llama offline bila sudah terpasang di HP, kamus offline sebagai cadangan. Terjemah sepenuhnya offline. Lirik lagu online (Gemini) ada di tombol "Lirik AI" di kisi alat — opsional dan mati bawaan.', 'hint');
+    el('div', 'Meta Llama offline bila sudah terpasang di HP, kamus offline sebagai cadangan. Mesin "Gemini online" ada di dalam panel Terjemah: opsional, hanya jalan bila dipilih, memakai kunci yang sama dengan "✍ Lirik".', 'hint');
     btn('Buka Terjemah', function(){ loadTranslate().then(function(ok){ if(ok) window.gwTranslateOpen(); else setText('gwai-note', 'Modul terjemah gagal dimuat: ' + (trFailed || '?') + '. Pasang ulang APK dari build terbaru (folder www/lib/ harus ikut).'); }); });
     el('div', '', 'hint').id = 'gwai-note';
   }
   window.gwaiOpen = function(){
-    if(!aiOn()){ alert('Nyalakan "Fitur cerdas (offline)" di Setelan → Eksperimental dulu.'); return; }
+    if(!aiOn()){ alert('Nyalakan "Fitur cerdas (offline + Gemini)" di Setelan → Eksperimental dulu.'); return; }
     if(!panel) build();
     panel.style.display = 'block';
     load().then(function(ok){ showStatus(); if(!ok){ setText('tab-output', loadFailMsg()); return; }
@@ -4993,6 +5052,7 @@
       try{ var tc = getComputedStyle(document.body).getPropertyValue('--key-tag').trim(); if(tc) wf.setColor(tc); }catch(e){}   // gelombang ikut warna aksen tema
       var sel = $('gwai-songs'); if(sel && !sel.options.length) G().songs.list().forEach(function(s){ var o = document.createElement('option'); o.value = s.id; o.textContent = (s.kind === 'lagu' ? '♪ ' : '✎ ') + s.title; sel.appendChild(o); });
       var t = G().tab.get(); if(t) showTab(t); });
+    gemStatus(); gemLoad().then(gemStatus);   // modul Gemini = aset lokal (tanpa jaringan); hanya untuk menampilkan status kunci/saklar
     var a = nat(); try{ a && a.setWaveformHook && a.setWaveformHook(true); }catch(e){}
   };
   window.gwaiClose = function(){
