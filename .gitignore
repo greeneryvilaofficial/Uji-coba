@@ -1,0 +1,28 @@
+# dependensi & hasil build
+node_modules/
+android/
+*.apk
+*.aab
+
+# RAHASIA - jangan pernah di-commit (pakai GitHub Actions secrets)
+*.keystore
+*.jks
+*.p12
+keystore
+keystore*.b64
+.env
+.env.*
+
+# model Llama: terlalu besar untuk git (batas 100 MB per berkas); taruh di folder HP / Release, bukan git
+*.gguf
+models/
+
+# sampah editor/OS
+.DS_Store
+Thumbs.db
+*.log
+
+# buat lolos tes 391 - wajib ada 3 baris polos ini
+node_modules/
+android/
+keystore
