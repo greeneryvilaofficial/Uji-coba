@@ -37,8 +37,8 @@ const docsOf = (dev, arr) => arr.map(([t, s, b]) => ({ name: `projects/guitarwit
   r = await G.backup(SONGS);
   ok(r.ok && r.total === 3 && r.written === 3 && r.deleted === 0, 'backup: duplikat (judul+folder sama) digabung, judul kosong dibuang -> 3 ditulis: ' + JSON.stringify(r));
   const get = reqs[0], post = reqs[1];
-  ok(get.init.method === 'GET' && get.url.startsWith('https://firestore.googleapis.com/v1/projects/guitarwiter/databases/(default)/documents/devices/' + dev + '/songs?pageSize=300') && get.url.includes('key=AIzaSyB0hxPPgiXATF0QTpHum1rChjcCcQJTrJY'), 'GET daftar: host, proyek, jalur devices/{id}/songs, kunci API sebagai parameter');
-  ok(post.init.method === 'POST' && post.url === 'https://firestore.googleapis.com/v1/projects/guitarwiter/databases/(default)/documents:commit?key=AIzaSyB0hxPPgiXATF0QTpHum1rChjcCcQJTrJY', 'POST commit ke endpoint :commit');
+  ok(get.init.method === 'GET' && get.url.startsWith('https://firestore.googleapis.com/v1/projects/guitarwiter/databases/(default)/documents/devices/' + dev + '/songs?pageSize=300') && get.url.includes('TEST_API_KEY'), 'GET daftar: host, proyek, jalur devices/{id}/songs, kunci API sebagai parameter');
+  ok(post.init.method === 'POST' && post.url === 'https://firestore.googleapis.com/v1/projects/guitarwiter/databases/(default)/documents:commit?key=TEST_API_KEY', 'POST commit ke endpoint :commit');
   const w = post.body.writes; ok(w.length === 3 && w.every(x => x.update.name.startsWith('projects/guitarwiter/databases/(default)/documents/devices/' + dev + '/songs/')), 'semua dokumen di bawah devices/{id}/songs/');
   ok(w.every(x => Object.keys(x.update.fields).sort().join() === 'bytes,src,title,updatedAt'), 'dokumen hanya punya 4 kolom: title, src, bytes, updatedAt');
   const bodyStr = JSON.stringify(post.body);
