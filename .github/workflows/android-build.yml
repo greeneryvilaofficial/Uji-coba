@@ -3,11 +3,19 @@ name: Build Android APK
 on:
   push:
     branches: [ main ]
+  pull_request:          # PR ikut dites + dibuild, tapi TIDAK membuat Release (lihat step Release) dan tidak memakai secret
+    branches: [ main ]
   workflow_dispatch: {}
+
+# Push baru membatalkan build lama di cabang yang sama (hemat menit, tidak ada Release ganda).
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45   # build normal ~10 menit; jangan menggantung berjam-jam kalau Gradle macet
     permissions:
       contents: write   # WAJIB -- tanpa ini, step "Buat Release" di bawah akan gagal (403)
     env:
@@ -28,8 +36,19 @@ jobs:
         with:
           node-version: '20'
 
+      # Capacitor dikunci ke ^6 di package.json (patch Java/manifest ditulis untuk Capacitor 6): JANGAN `npm install @capacitor/...` tanpa versi.
+      # Pakai `npm ci` kalau package-lock.json ada (hasil persis sama tiap build), kalau belum ada pakai `npm install`.
       - name: Install dependency npm
-        run: npm install
+        run: |
+          set -e
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      # Gagal CEPAT (detik, bukan menit): semua tes + kompilasi Java patch + kebersihan repo, SEBELUM Capacitor/Gradle.
+      - name: Verifikasi (tes + kompilasi Java + kebersihan repo)
+        run: |
+          set -e
+          npm test
+          node tools/java-check.js
 
       # src/lib (Llama offline, kamus, lirik Gemini online opsional) -> www/lib, karena Capacitor hanya mengemas folder www/
       - name: Sinkronkan src/lib ke www/lib
@@ -117,7 +136,13 @@ jobs:
           cp native-patches/method.xml android/app/src/main/res/xml/method.xml
 
       - name: Pasang ikon launcher foto pribadi (mipmap + adaptive icon)
-        run: python3 native-patches/insert_icon.py android/app/src/main/res native-patches/app-icon
+        run: |
+          set -e
+          # Folder ikon ada di akar repo (app-icon/); native-patches/app-icon dicoba sebagai cadangan.
+          ICON_DIR=app-icon
+          [ -d "$ICON_DIR" ] || ICON_DIR=native-patches/app-icon
+          test -d "$ICON_DIR" || (echo "FATAL: folder ikon tidak ditemukan (app-icon/ atau native-patches/app-icon/)" && exit 1)
+          python3 native-patches/insert_icon.py android/app/src/main/res "$ICON_DIR"
 
       - name: Daftarkan service keyboard di AndroidManifest.xml
         run: python3 native-patches/insert_service.py android/app/src/main/AndroidManifest.xml
@@ -127,6 +152,9 @@ jobs:
 
       - name: Tambahkan izin RECORD_AUDIO di AndroidManifest.xml
         run: python3 native-patches/insert_permission.py android/app/src/main/AndroidManifest.xml
+
+      - name: Pastikan izin INTERNET ada (untuk fitur online opsional Lirik AI / Gemini)
+        run: python3 native-patches/insert_internet.py android/app/src/main/AndroidManifest.xml
 
       - name: Tambahkan dependency androidx.webkit (untuk WebViewAssetLoader/mikrofon)
         run: python3 native-patches/insert_webkit_dependency.py android/app/build.gradle
@@ -149,6 +177,11 @@ jobs:
       - name: Tambahkan signing config ke build.gradle (kalau keystore tersedia)
         if: env.KEYSTORE_BASE64 != ''
         run: python3 native-patches/insert_signing.py android/app/build.gradle
+
+      # Setelah SEMUA patch dan sebelum Gradle: manifest valid & tidak ganda, izin benar, 7 berkas Java tertempel identik,
+      # versi sama dengan package.json, dan SEMUA berkas www/ benar-benar ikut dikemas. Gagal di sini = pesan jelas, bukan error Gradle panjang.
+      - name: Periksa hasil patch sebelum Gradle
+        run: node tools/ci-check.js --built android
 
       - name: Beri izin eksekusi gradlew
         run: chmod +x android/gradlew
@@ -194,7 +227,7 @@ jobs:
       # Tag dibuat unik per run (build-<nomor_run>) supaya tiap push ke main
       # otomatis jadi Release baru, tidak menimpa yang lama.
       - name: Buat GitHub Release & lampirkan APK
-        if: success()   # jangan bikin Release kosong kalau build gagal
+        if: success() && github.event_name != 'pull_request'   # tidak ada Release kosong kalau build gagal, dan tidak ada Release dari pull request
         uses: softprops/action-gh-release@v3
         with:
           tag_name: build-${{ github.run_number }}
