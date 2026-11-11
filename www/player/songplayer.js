@@ -56,7 +56,6 @@
   var panel = null, songs = [], folders = [], queue = [], dirPath = '', truncated = false;
   var st = { id: '', state: 'idle', pos: 0, dur: 0, err: '' };
   var reqSeq = 0, loaded = false, seeking = false, armed = {}, query = '', notice = '';
-  var elCloudSt, elCloudOn, elCloudOut;
   var elNow, elTime, elSeek, elPlay, elStatus, elList, elFold, elVol, elShuf, elRep, elFind, elHold, elHide;
 
   function B() { return root.AndroidSongs || null; }
@@ -198,33 +197,6 @@
     });
   }
 
-  // ---------------------------------------------------------------- cadangan cloud (OPSIONAL; kodenya ada di cloud.js, bukan di sini)
-  var cloudLoading = null;
-  function loadCloud() {
-    if (root.GWCLOUD) return Promise.resolve(true);
-    if (cloudLoading) return cloudLoading;
-    cloudLoading = new Promise(function (res) {
-      var sc = doc.createElement('script'); sc.src = 'player/cloud.js';
-      sc.onload = function () { res(!!root.GWCLOUD); }; sc.onerror = function () { res(false); };
-      doc.head.appendChild(sc);
-    }).then(function (ok) { if (!ok) cloudLoading = null; return ok; });
-    return cloudLoading;
-  }
-  function cloudSay(t) { if (elCloudOut) elCloudOut.textContent = t; }
-  function cloudSync() {
-    if (!elCloudSt) return;
-    var on = !!(root.GWCLOUD && root.GWCLOUD.isEnabled());
-    elCloudSt.textContent = on ? 'Cadangan: NYALA · id perangkat …' + root.GWCLOUD.deviceId().slice(-6) : 'Cadangan: MATI (tidak ada data yang dikirim)';
-    elCloudOn.textContent = on ? 'Matikan cadangan' : 'Nyalakan cadangan';
-  }
-  function cloudDo(label, fn, show) {
-    loadCloud().then(function (ok) {
-      if (!ok) { cloudSay('✗ Modul cloud gagal dimuat (folder www/player/ tidak ikut di APK). Pasang ulang APK dari build terbaru.'); return; }
-      cloudSync(); cloudSay(label + '…');
-      return fn(root.GWCLOUD).then(function (r) { cloudSay(r && r.ok ? show(r) : '✗ ' + root.GWCLOUD.message(r && r.error)); cloudSync(); });
-    });
-  }
-
   function build() {
     var css = doc.createElement('style');
     css.textContent =
@@ -286,28 +258,6 @@
     var l2 = el('label'); elHide = doc.createElement('input'); elHide.type = 'checkbox'; elHide.checked = prefs.stopOnHide; l2.appendChild(elHide); el('span', 'Hentikan lagu saat keyboard ditutup (kalau mati, lagu terus main sementara kamu mengetik di aplikasi lain)', null, l2);
     elHide.addEventListener('change', function () { prefs.stopOnHide = elHide.checked; savePrefs(); });
 
-    el('h4', '☁ Cadangan daftar lagu (opsional · ONLINE)');
-    el('div', 'Bawaan MATI. Hanya setelah dinyalakan DAN kamu mengetuk tombol di bawah, JUDUL + nama folder + ukuran lagu dikirim ke Google Firebase (proyek guitarwiter). Berkas audio, lokasi berkas, dan isi ketikan tidak pernah dikirim; audio tetap di HP ini. Memutar lagu tetap 100% offline.', 'hint');
-    elCloudSt = el('div', 'Cadangan: MATI (tidak ada data yang dikirim)', 'hint');
-    var cl = el('div', null, 'ctl');
-    elCloudOn = btn('Nyalakan cadangan', function () {
-      loadCloud().then(function (ok) {
-        if (!ok) { cloudSay('✗ Modul cloud gagal dimuat.'); return; }
-        if (root.GWCLOUD.isEnabled()) { root.GWCLOUD.setEnabled(false); armed.cloudOn = false; cloudSync(); cloudSay('Cadangan dimatikan. Data yang sudah ada di cloud tetap ada sampai kamu menghapusnya.'); return; }
-        if (!armed.cloudOn) { armed.cloudOn = true; elCloudOn.textContent = 'Yakin? Judul lagu akan dikirim ke Google'; setTimeout(function () { armed.cloudOn = false; cloudSync(); }, 4000); return; }
-        armed.cloudOn = false; root.GWCLOUD.setEnabled(true); cloudSync(); cloudSay('Cadangan dinyalakan. Ketuk "Cadangkan sekarang" untuk mengirim.');
-      });
-    }, '', cl);
-    btn('Cadangkan sekarang', function () { cloudDo('Mencadangkan', function (g) { return g.backup(songs); }, function (r) { return '✓ Tercadang: ' + r.total + ' lagu (' + r.written + ' ditulis, ' + r.deleted + ' dihapus dari cadangan).'; }); }, '', cl);
-    btn('Lihat cadangan', function () { cloudDo('Mengambil cadangan', function (g) { return g.list(); }, function (r) {
-      var have = {}; songs.forEach(function (x) { have[x.title.toLowerCase()] = 1; });
-      if (!r.items.length) return 'Belum ada cadangan.';
-      return r.items.length + ' lagu di cadangan:\n' + r.items.slice(0, 60).map(function (i) { return (have[i.title.toLowerCase()] ? '✓ ' : '— ') + i.title; }).join('\n')
-        + (r.items.length > 60 ? '\n… dan ' + (r.items.length - 60) + ' lagi' : '') + '\n(✓ = ada di HP ini, — = tidak ada di HP ini; audionya tidak ikut dicadangkan)'; }); }, 'fn', cl);
-    var wp = btn('Hapus cadangan saya', function () { }, 'fn', cl);
-    twoTap('cloudWipe', wp, 'Hapus cadangan saya', 'Yakin hapus?', function () { cloudDo('Menghapus cadangan', function (g) { return g.wipe(); }, function (r) { return '✓ ' + r.deleted + ' entri cadangan dihapus dari cloud.'; }); });
-    elCloudOut = el('div', '', 'hint');
-    if (root.GWCLOUD) cloudSync();
   }
 
   root.gwSongsOpen = function () {
