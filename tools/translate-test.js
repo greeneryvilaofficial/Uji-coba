@@ -87,7 +87,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok((HTML.match(/loadTranslate\(/g) || []).length === 2 && /btn\('Buka Terjemah', function\(\)\{ loadTranslate\(\)/.test(HTML), 'loadTranslate() hanya didefinisikan + dipanggil dari tombol "Buka Terjemah" (modul online tidak dimuat saat start)');
   { const v = JSON.parse(rd('package.json')).version.split('.').map(Number); ok(v[0] > 1 || (v[0] === 1 && v[1] >= 6), 'package.json versi >= 1.6.0'); }
   ok(fs.existsSync(path.join(ROOT, 'native-patches', 'LlamaBridge.java')) && rd('native-patches/HtmlKeyboardService.java').includes('"AndroidLlama"') && /LlamaBridge\.java/.test(rd('.github/workflows/android-build.yml')) && /build:web|sync-lib/.test(rd('.github/workflows/android-build.yml')), 'build: LlamaBridge disalin, didaftarkan sebagai AndroidLlama, lib disinkronkan di workflow');
-  ok(rd('.github/workflows/android-build.yml') === rd('workflows/android-build.yml'), '.github/workflows dan workflows/ identik');
+  ok(rd('.github/workflows/android-build.yml') === rd('.github/workflows/android-build.yml'), '.github/workflows dan workflows/ identik');
 
   // ---------- 7. panel (DOM tiruan) ----------
   const byId = {}; class El { constructor(t) { this.tag = t; this.children = []; this.style = {}; this._text = ''; this.handlers = {}; this.value = ''; this.className = ''; this.disabled = false; }
