@@ -1,0 +1,244 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:          # PR ikut dites + dibuild, tapi TIDAK membuat Release (lihat step Release) dan tidak memakai secret
+    branches: [ main ]
+  workflow_dispatch: {}
+
+# Push baru membatalkan build lama di cabang yang sama (hemat menit, tidak ada Release ganda).
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45   # build normal ~10 menit; jangan menggantung berjam-jam kalau Gradle macet
+    permissions:
+      contents: write   # WAJIB -- tanpa ini, step "Buat Release" di bawah akan gagal (403)
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      # Capacitor dikunci ke ^6 di package.json (patch Java/manifest ditulis untuk Capacitor 6): JANGAN `npm install @capacitor/...` tanpa versi.
+      # Pakai `npm ci` kalau package-lock.json ada (hasil persis sama tiap build), kalau belum ada pakai `npm install`.
+      - name: Install dependency npm
+        run: |
+          set -e
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+      # Gagal CEPAT (detik, bukan menit): semua tes + kompilasi Java patch + kebersihan repo, SEBELUM Capacitor/Gradle.
+      - name: Verifikasi (tes + kompilasi Java + kebersihan repo)
+        run: |
+          set -e
+          npm test
+          node tools/java-check.js
+
+      # src/lib (Llama offline, kamus, lirik Gemini online opsional) -> www/lib, karena Capacitor hanya mengemas folder www/
+      - name: Sinkronkan src/lib ke www/lib
+        run: npm run build:web
+
+      - name: Cek isi folder www/ sebelum lanjut
+        run: |
+          set -e
+          echo "Isi folder www/:"
+          ls -la www/ || (echo "FATAL: folder www/ tidak ditemukan di root repo" && exit 1)
+          test -f www/index.html || (echo "FATAL: www/index.html tidak ada" && exit 1)
+          echo "OK: www/ lengkap"
+
+      - name: Buat folder android/ (verbose, berhenti kalau gagal)
+        run: |
+          set -e -x
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "Folder android/ sudah ada, lewati."
+          fi
+
+      - name: Sync isi www/ ke android/ (verbose, berhenti kalau gagal)
+        run: |
+          set -e -x
+          npx cap sync android
+
+      - name: WAJIB - pastikan android/app/build.gradle benar-benar ada
+        run: |
+          set -e
+          if [ ! -f "android/app/build.gradle" ]; then
+            echo "FATAL: android/app/build.gradle tidak ditemukan setelah cap add + cap sync."
+            echo "Menampilkan seluruh struktur folder android/ untuk diagnosa:"
+            find android -maxdepth 5 2>/dev/null || echo "Folder android/ bahkan tidak ada sama sekali."
+            exit 1
+          fi
+          echo "OK: android/app/build.gradle ditemukan."
+
+      - name: Set nama aplikasi di launcher jadi Guitarwiter
+        run: |
+          set -e
+          F=android/app/src/main/res/values/strings.xml
+          test -f "$F" || (echo "FATAL: $F tidak ditemukan" && exit 1)
+          sed -i 's|<string name="app_name">[^<]*</string>|<string name="app_name">Guitarwiter</string>|; s|<string name="title_activity_main">[^<]*</string>|<string name="title_activity_main">Guitarwiter</string>|' "$F"
+          grep -n 'app_name\|title_activity_main' "$F"
+
+      - name: Tempel HtmlKeyboardService.java ke lokasi paket Java
+        run: |
+          set -e
+          mkdir -p android/app/src/main/java/com/keyboardkustom/app
+          cp native-patches/HtmlKeyboardService.java android/app/src/main/java/com/keyboardkustom/app/HtmlKeyboardService.java
+
+      - name: Tempel NativeMicPitchDetector.java (deteksi nada native, ganti getUserMedia)
+        run: |
+          set -e
+          mkdir -p android/app/src/main/java/com/keyboardkustom/app
+          cp native-patches/NativeMicPitchDetector.java android/app/src/main/java/com/keyboardkustom/app/NativeMicPitchDetector.java
+
+      - name: Tempel HumRecorder.java (rekam humming 30 detik untuk Muse Wonder)
+        run: |
+          set -e
+          cp native-patches/HumRecorder.java android/app/src/main/java/com/keyboardkustom/app/HumRecorder.java
+
+      - name: Tempel LlamaBridge.java (jembatan Meta Llama offline; aman tanpa pustaka native)
+        run: |
+          set -e
+          cp native-patches/LlamaBridge.java android/app/src/main/java/com/keyboardkustom/app/LlamaBridge.java
+
+      - name: Tempel SongPlayerBridge.java + SongPickerActivity.java (pemutar lagu offline, folder lokal)
+        run: |
+          set -e
+          cp native-patches/SongPlayerBridge.java android/app/src/main/java/com/keyboardkustom/app/SongPlayerBridge.java
+          cp native-patches/SongPickerActivity.java android/app/src/main/java/com/keyboardkustom/app/SongPickerActivity.java
+
+      - name: Tempel MainActivity.java (versi yang minta izin mikrofon)
+        run: |
+          set -e
+          mkdir -p android/app/src/main/java/com/keyboardkustom/app
+          cp native-patches/MainActivity.java android/app/src/main/java/com/keyboardkustom/app/MainActivity.java
+
+      - name: Tempel method.xml ke folder res/xml
+        run: |
+          set -e
+          mkdir -p android/app/src/main/res/xml
+          cp native-patches/method.xml android/app/src/main/res/xml/method.xml
+
+      - name: Pasang ikon launcher foto pribadi (mipmap + adaptive icon)
+        run: |
+          set -e
+          # Folder ikon ada di akar repo (app-icon/); native-patches/app-icon dicoba sebagai cadangan.
+          ICON_DIR=app-icon
+          [ -d "$ICON_DIR" ] || ICON_DIR=native-patches/app-icon
+          test -d "$ICON_DIR" || (echo "FATAL: folder ikon tidak ditemukan (app-icon/ atau native-patches/app-icon/)" && exit 1)
+          python3 native-patches/insert_icon.py android/app/src/main/res "$ICON_DIR"
+
+      - name: Daftarkan service keyboard di AndroidManifest.xml
+        run: python3 native-patches/insert_service.py android/app/src/main/AndroidManifest.xml
+
+      - name: Daftarkan SongPickerActivity di AndroidManifest.xml (pemilih lagu/folder; tanpa izin penyimpanan)
+        run: python3 native-patches/insert_activity.py android/app/src/main/AndroidManifest.xml
+
+      - name: Tambahkan izin RECORD_AUDIO di AndroidManifest.xml
+        run: python3 native-patches/insert_permission.py android/app/src/main/AndroidManifest.xml
+
+      - name: Pastikan izin INTERNET ada (untuk fitur online opsional Lirik AI / Gemini)
+        run: python3 native-patches/insert_internet.py android/app/src/main/AndroidManifest.xml
+
+      - name: Tambahkan dependency androidx.webkit (untuk WebViewAssetLoader/mikrofon)
+        run: python3 native-patches/insert_webkit_dependency.py android/app/build.gradle
+
+      # Tanpa langkah ini APK debug tetap debuggable=true -> ART mematikan optimasi (inlining/JIT penuh)
+      # sehingga loop deteksi nada (YIN) di thread audio jalan jauh lebih lambat dan ketikan terasa telat.
+      - name: Jadikan build debug non-debuggable (secepat release)
+        run: python3 native-patches/insert_perf.py android/app/build.gradle
+
+      - name: Samakan versi Info Aplikasi dengan package.json (bukan 1.0 bawaan Capacitor)
+        run: python3 native-patches/insert_version.py android/app/build.gradle package.json
+
+      - name: Decode keystore dari secret (kalau ada)
+        if: env.KEYSTORE_BASE64 != ''
+        run: |
+          set -e
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+          test -s android/app/release.keystore || (echo "FATAL: release.keystore kosong/gagal decode" && exit 1)
+
+      - name: Tambahkan signing config ke build.gradle (kalau keystore tersedia)
+        if: env.KEYSTORE_BASE64 != ''
+        run: python3 native-patches/insert_signing.py android/app/build.gradle
+
+      # Setelah SEMUA patch dan sebelum Gradle: manifest valid & tidak ganda, izin benar, 7 berkas Java tertempel identik,
+      # versi sama dengan package.json, dan SEMUA berkas www/ benar-benar ikut dikemas. Gagal di sini = pesan jelas, bukan error Gradle panjang.
+      - name: Periksa hasil patch sebelum Gradle
+        run: node tools/ci-check.js --built android
+
+      - name: Beri izin eksekusi gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build APK debug
+        working-directory: android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Ganti nama APK debug jadi Guitarwiter-debug.apk
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/Guitarwiter-debug.apk
+
+      - name: Unggah APK debug sebagai artifact
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: Guitarwiter-debug-apk
+          path: android/app/build/outputs/apk/debug/Guitarwiter-debug.apk
+          if-no-files-found: ignore
+
+      - name: Build APK release (signed)
+        if: env.KEYSTORE_BASE64 != ''
+        working-directory: android
+        env:
+          KEYSTORE_PATH: release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Ganti nama APK release jadi Guitarwiter.apk
+        if: env.KEYSTORE_BASE64 != ''
+        run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/Guitarwiter.apk
+
+      - name: Unggah APK release sebagai artifact (kalau ada)
+        if: env.KEYSTORE_BASE64 != ''
+        uses: actions/upload-artifact@v6
+        with:
+          name: Guitarwiter-apk
+          path: android/app/build/outputs/apk/release/Guitarwiter.apk
+
+      # ---- Bagian ini yang bikin APK-nya nongol di tab "Releases" depan repo,
+      # bukan cuma terkubur di tab Actions -> buka run -> scroll ke Artifacts.
+      # Tag dibuat unik per run (build-<nomor_run>) supaya tiap push ke main
+      # otomatis jadi Release baru, tidak menimpa yang lama.
+      - name: Buat GitHub Release & lampirkan APK
+        if: success() && github.event_name != 'pull_request'   # tidak ada Release kosong kalau build gagal, dan tidak ada Release dari pull request
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Build #${{ github.run_number }}
+          body: |
+            Build otomatis dari commit ${{ github.sha }}.
+            - `Guitarwiter-debug.apk` selalu ada (tidak perlu keystore).
+            - `Guitarwiter.apk` cuma ada kalau secret KEYSTORE_BASE64 dkk sudah diisi.
+          # fail_on_unmatched_files:false -> kalau release.apk belum ada (keystore
+          # belum disetel), step ini tetap sukses & cuma lampirin yang ada saja.
+          fail_on_unmatched_files: false
+          files: |
+            android/app/build/outputs/apk/debug/Guitarwiter-debug.apk
+            android/app/build/outputs/apk/release/Guitarwiter.apk
