@@ -1,10 +1,10 @@
 # Kebijakan Privasi — Guitarwiter
 
-_Terakhir diperbarui: 10 November 2026 (v1.8.0: Lirik AI dengan Gemini menggantikan Muse Spark)_
+_Terakhir diperbarui: 11 November 2026 (v1.9.0: Fitur cerdas, Terjemah, dan Lirik AI memakai satu mesin Gemini opsional)_
 
 Guitarwiter adalah keyboard Android yang mengubah nada gitar (lewat mikrofon) menjadi ketikan. Kebijakan ini menjelaskan data apa yang disentuh aplikasi dan ke mana perginya.
 
-**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah fitur "Lirik AI" (Google Gemini) yang opsional dan mati secara bawaan (lihat bagian 12).**
+**Ringkasnya: semua diproses di perangkatmu. Guitarwiter tidak mengirim apa pun ke server mana pun, tidak memakai iklan, dan tidak memakai analitik/pelacak — satu-satunya pengecualian adalah fitur Gemini (Google) yang opsional dan mati secara bawaan: Lirik AI, tombol ☁ di Fitur cerdas, dan mesin "Gemini online" di Terjemah — lihat bagian 12 (lihat bagian 12).**
 
 ## 1. Mikrofon
 - Izin **RECORD_AUDIO** dipakai hanya untuk mendeteksi nada gitar secara *real-time* di dalam aplikasi.
@@ -53,7 +53,7 @@ Bawaannya **mati**. Saat dinyalakan, semua dikerjakan **di perangkat Anda**: men
 - Versi lama (1.4.x) yang memakai layanan online menyimpan kunci API di perangkat. Versi ini menghapus kunci itu saat dimuat.
 
 ## 10. Terjemah — Setelan → Eksperimental → "Fitur cerdas (offline)" → "⑥ Terjemah"
-- Terjemah **sepenuhnya offline** (kamus bawaan, dan Meta Llama bila model dipasang): teks di kotak Terjemah diproses di perangkat. Tidak ada koneksi jaringan.
+- Terjemah **secara bawaan offline** (kamus bawaan, dan Meta Llama bila model dipasang): teks di kotak Terjemah diproses di perangkat; mode "Otomatis" tidak pernah online. Satu-satunya jalur online adalah mesin "Gemini online" yang kamu pilih sendiri (bagian 12).
 - Mesin online "Spark" (Meta Model API) yang ada di v1.6.0–1.7.0 **sudah dihapus di v1.8.0**, begitu pula kunci API-nya (hapus data aplikasi bila ingin membersihkan sisa kunci lama).
 
 ## 11. Pemutar lagu offline (v1.7.0) — kisi alat → "Lagu offline"
@@ -62,8 +62,10 @@ Bawaannya **mati**. Saat dinyalakan, semua dikerjakan **di perangkat Anda**: men
 - Yang disimpan di perangkat: daftar folder yang kamu pilih, lagu terakhir yang diputar, dan pengaturan pemutar (acak, ulang, volume, dua opsi). Nama berkas hanya ditampilkan di layar.
 - Selama lagu diputar, mikrofon deteksi gitar dimatikan (supaya suara speaker tidak terbaca sebagai nada) dan hidup lagi saat lagu dijeda atau berhenti.
 
-## 12. Lirik AI dengan Google Gemini (v1.8.0) — kisi alat → "Lirik AI"
+## 12. Gemini (Google) — Lirik AI, tombol ☁ di Fitur cerdas, dan mesin "Gemini online" di Terjemah (v1.8.0–1.9.0)
 - **MATI secara bawaan.** Hanya jika kamu (1) menyalakannya (dua ketukan), (2) memasukkan **kunci API Gemini milikmu sendiri**, dan (3) menekan "Bikin Lagu", **teks permintaan di kotak itu saja** (maks 300 karakter) dikirim lewat https ke `generativelanguage.googleapis.com` bersama instruksi tetap "penulis lagu". Ketikan keyboard biasa, audio/mikrofon, tab, papan klip, dan daftar lagu tidak pernah dikirim. Tidak ada kunci di dalam aplikasi.
 - Kunci disimpan hanya di penyimpanan lokal aplikasi di perangkat ini dan dikirim hanya di header `x-goog-api-key`. "Hapus kunci" menghapusnya dari perangkat (cabut juga di Google AI Studio bila pernah bocor).
 - Pemrosesan oleh Google mengikuti ketentuan Gemini API; pada tingkat gratis, Google dapat memakai isi permintaan dan jawaban untuk meningkatkan produknya. Jangan menulis data pribadi di kotak permintaan.
 - Lagu hasil Gemini **otomatis disimpan hanya di perangkat** (penyimpanan lokal aplikasi) dan bisa dibuka lagi tanpa internet; tombol 🗑 atau menghapus data aplikasi menghapusnya. Tidak ada unggahan, akun, analitik, atau pelacak.
+- **Satu kunci, satu saklar untuk semuanya (v1.9.0).** Hanya saat kamu mengetuk salah satu tombol Gemini, yang dikirim adalah **teks yang kamu tulis di kotak fitur itu**: permintaan lagu (maks 300 karakter), akor (maks 16, divalidasi dulu di perangkat) + suasana, perintah tab (maks 100 karakter), atau teks terjemahan (maks 500 karakter), bersama instruksi tetap. **Tidak pernah dikirim:** audio/humming, isi tab, ketikan keyboard biasa, papan klip, daftar lagu, nama berkas.
+- Untuk perintah tab, Gemini hanya **memilih dari daftar perintah yang diizinkan**; jawaban lain dibuang dan tab diubah oleh editor offline di perangkat.

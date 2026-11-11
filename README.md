@@ -3,7 +3,7 @@
 A custom Android keyboard that turns **guitar notes into typing**. Pluck one note → one letter/key appears in any text field (WhatsApp, Instagram, etc.). Pitch detection runs natively (AudioRecord + YIN) inside the app, while the keyboard UI is a web page (`www/`) inside an `InputMethodService` WebView.
 
 ## For judges — what is real, what is optional, what is not done (v1.6.0)
-**60-second check, no API key and no APK needed:** open the green ✓ on the latest commit (workflow *Verify*) or run `npm test` (plain Node ≥ 18, no dependencies; 306 checks).
+**60-second check, no API key and no APK needed:** open the green ✓ on the latest commit (workflow *Verify*) or run `npm test` (plain Node ≥ 18, no dependencies; 398 checks).
 
 | Meta product | Where | State in this repo |
 |---|---|---|
@@ -105,6 +105,13 @@ Every push to `main` builds an APK and a new Release (`build-<number>`).
 | `RELEASE_RMS` (0.009) | deliberately below `ONSET_RMS` (0.012): hysteresis so ring ripples do not release the lock and get read as a new pluck |
 
 ## Changelog
+
+### v1.9.0 — "Fitur cerdas" + Terjemah + Lirik AI share one Gemini engine, linked by a navbar; verify made clean
+- **One Gemini engine (`src/lib/online/gemini.js`) for four text tasks**, one key / one switch / one model for all of them (set in the "✍ Lirik" panel): `lyrics()` (song lyrics + chords), `lyrics(…, {chords})` (lyrics for *your* chords), `translate()` (new engine "Gemini online" in the Translate panel), `command()` (understand a free-form tab command). Still **off by default**, your own key, button-triggered only, no automatic calls.
+- **"Fitur cerdas" panel (Settings → Experimental):** new buttons **☁ Pahami dengan Gemini** (① edit tab) and **☁ Lirik Gemini** (② chords → lyrics). Gemini never edits a tab: for commands it may only *choose* from a closed list (`bluesy, galau, ceria, rock, fingerstyle, cepat, lambat, ulang, naik:N, turun:N`, N 1–12; anything else is dropped), and the **offline editor** applies the result. Chords are validated offline before being sent; lyrics are saved to the same offline library as "✍ Lirik". **Humming audio, tab contents and typed text are never sent**; the humming result only fills the chord box (chords, not audio).
+- **Shared navbar `✍ Lirik · 🎸 Cerdas · 🌐 Terjemah`** at the top of all three panels (`window.gwNav`); each panel shows the shared Gemini status (on/off, key hint) and Translate has a "set key" shortcut. The offline engines stay: nothing was deleted, "Otomatis" in Translate is never online.
+- Gemini 2.5 Flash/Flash-Lite requests set `thinkingBudget: 0` (no wasted thinking tokens); other models do not get that field. **Not verified against the live API** (no network here).
+- **Verify/CI cleaned up** (see "CI / verify" below): the icon folder path in the workflow pointed to `native-patches/app-icon` which does not exist (the folder is `app-icon/`), so the icon step would exit with FATAL; now auto-detected. New `INTERNET` permission patch (`native-patches/insert_internet.py`), tests + Java compile + patched-project check run **before** Gradle, `npm ci` when a lockfile exists, concurrency + timeouts, no Release from pull requests, `.nvmrc`, `.gitattributes`, `engines`.
 
 ### v1.8.0 — Muse Spark (online) replaced by "Lirik AI": song lyrics + chords from Gemini, saved offline
 - **Removed:** `src/lib/online/spark.js` (Muse Spark / Meta Model API), the "Spark online" translate engine and its key/model fields. Translation is now 100 percent offline (Llama if installed, otherwise the dictionary). The *offline* "Spark" editor commands in `www/ai/` are unrelated and unchanged.
@@ -248,6 +255,12 @@ Simulation results (original v1.3.5 → v1.3.6), without and with a slow phone (
 - **The Java note map is not used when stale.** After a note handled by JS (e.g. `?123` switching to symbols), Java waits for the new map first, so the next letter is not typed with the old mode's map and then deleted and retyped.
 - Kept from v1.3.x: native key sound & vibration (`keyTap`), mic muting on touch, the anti-echo gate, type-first ordering.
 
+## CI / verify (v1.9.0)
+- **Verify** (`.github/workflows/verify.yml`, ~1 min, no secrets): `npm test` (all suites + `ci-check` + lib sync) and `node tools/java-check.js`. Same thing locally: `npm run verify`.
+- **Build Android APK** runs the same verification first (fails in seconds), then `cap add/sync`, patches, `node tools/ci-check.js --built android` (fails with a clear message instead of a long Gradle error), then Gradle. Pull requests are built but never create a Release; pushes to `main` do.
+- **Lockfile:** this repo ships without `package-lock.json` (it cannot be generated offline). Run `npm install` once locally and commit the generated `package-lock.json`: the build then uses `npm ci` (reproducible). Do **not** enable `cache: npm` / `cache: gradle` in `setup-node` / `setup-java` before that: they fail when the lockfile / gradle files are absent (`android/` is generated and git-ignored, so `cache: gradle` can never work here).
+- Do not replace the workflow with a generic "copy one HTML into www/" one: it would drop `ai/`, `lib/`, `player/`, the native patches and the `com.keyboardkustom.app` package that the patches depend on.
+
 ## Common problems
 - **One pluck appears twice** → raise `ECHO_SAME_NOTE_PEAK` (e.g. 0.8) / `ECHO_WINDOW_MS`. If a fast re-pluck of the same note fails to appear, lower it (e.g. 0.55).
 - **High notes (x c v b n m) still double** → raise `SAME_NOTE_VALLEY_RATIO` (e.g. 2.2) or `SAME_NOTE_WINDOW_MS` (e.g. 1800). Turn on "Note info": "↩ echo ignored" appears every time the gate discards something.
@@ -269,6 +282,8 @@ Privacy policy: [privacy-policy.md](privacy-policy.md)
 ## Testing (`tools/` folder)
 Run here before a release; not shipped in the APK.
 - `tools/ai-test.js` (plain Node, no dependencies): 94 checks of the offline AI engines — no network in the code (static scan) and none at run time (fetch/XHR/WebSocket/beacon are blocked), tab validation, music theory, song builder, lyrics, library fidelity, Spark commands, chord→song, humming→song, segmentation, cover art.
+- `tools/ci-check.js` (plain Node, v1.9.0): repo hygiene + the whole Android patch pipeline on a **synthetic Capacitor-6-shaped project** (every `insert_*.py` run twice = idempotent, resulting manifest valid XML, checker proven able to fail), workflow files identical/valid/consistent, every `native-patches/*` used by the workflow, versions consistent (package.json = `core.js` = README = privacy = `sw.js`), `sw.js`/`index.html` references exist, no secrets in the repo. `node tools/ci-check.js --built android` runs the same project checks on the **real** patched `android/` folder inside the build workflow.
+- `tools/java-check.js` + `tools/java-stubs/` (v1.9.0): compiles `SongPlayerBridge`, `SongPickerActivity`, `LlamaBridge`, `HumRecorder` against hand-written minimal Android stubs, 0 errors / 0 warnings required. Needs a JDK (skipped locally with a message if absent; mandatory when `CI=true`). It is **not** the Android SDK: wrong use of a real Android API can slip through, Gradle remains the final judge.
 - `tools/lyrics-test.js` (plain Node, v1.8.0): 77 checks of the Gemini lyrics feature against a fake `fetch`/`localStorage` — no key in code, key only in the `x-goog-api-key` header, one https host, model-name validation, guards (off / no key / busy / too fast / too long), error mapping (400 bad key, 404 retired model, 429, 5xx, blocked, empty, timeout, offline), offline store (cap, quota, corrupt data), panel (hostile AI text stays text, saved songs open with zero network).
 - `tools/translate-test.js` (plain Node): 40 checks of `src/lib` — only `online/gemini.js` may contain network code, dictionary, Llama bridge contract (fake bridge: unavailable / busy / timeout / result), no Spark engine left, router is fully offline, `index.html` / `sw.js` / workflow wiring, panel smoke test.
 - `tools/songs-test.js` (plain Node, v1.7.0): 61 checks of the offline music player — no network code (static scan of the JS and Java), manifest/workflow/service wiring, `insert_activity.py` idempotence, queue logic (next/previous/shuffle/repeat), the real panel script against a fake `AndroidSongs` bridge (list, play/pause/resume, auto-advance, errors, search, two-tap delete, mic hold/release, hostile file names, stale replies, missing bridge).
