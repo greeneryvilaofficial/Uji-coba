@@ -23,8 +23,8 @@ const G = GWAI, M = G.music, S = G.songgen, E = G.editor, W = G.wonder, O = G.OP
   const blk = HTML.slice(HTML.indexOf('[LABEL AI / v1.5.0 / OFFLINE]')); ok(!/api\.meta|Authorization|fetch\(|apiKey|Test Connection/.test(blk) && !/kolom API Key|Endpoint \(opsional\)/.test(blk), 'blok AI di index.html tanpa kunci/endpoint/Test Connection');
   ok(!HTML.includes("localStorage.getItem('meta_key')") && /\['meta_key','gwai_cfg_v1','gwai_wonder_quota'\]\.forEach\(function\(k\)\{ localStorage\.removeItem\(k\)/.test(HTML), 'kunci lama (meta_key, cfg, kuota) dihapus saat dimuat dan tidak dibaca di mana pun');
   const mods = /var MODS = \[([^\]]+)\]/.exec(blk)[1].match(/ai\/[a-z-]+\.js/g); ok(mods.length === 8 && mods.every(m => fs.existsSync(path.join(__dirname, '..', 'www', m)) && SW.includes("'" + m + "'")), 'pemuat memuat 8 modul yang ada di disk dan di cache sw.js');
-  ok(/prefs\.ai && window\.gwaiOpen\) window\.gwaiOpen\(\)/.test(HTML) && HTML.includes("k:'ai', t:'Fitur cerdas (offline)'") && HTML.includes('ai:false,'), 'saklar tetap ada: bawaan MATI, ON -> panel terbuka');
-  for (const sec of ['① Ubah tab (Spark offline)', '② Chord → Lagu + lirik', '③ Humming → Lagu Full (Wonder offline)', '④ Perpustakaan tab lagu', '⑤ Waveform, segmentasi & sampul']) ok(blk.includes(sec), 'panel: ' + sec);
+  ok(/prefs\.ai && window\.gwaiOpen\) window\.gwaiOpen\(\)/.test(HTML) && HTML.includes("k:'ai', t:'Fitur cerdas (offline + Gemini)'") && HTML.includes('ai:false,'), 'saklar tetap ada: bawaan MATI, ON -> panel terbuka');
+  for (const sec of ['① Ubah tab (offline + ☁ Gemini)', '② Chord → Lagu + lirik (offline + ☁ Gemini)', '③ Humming → Lagu Full (Wonder offline)', '④ Perpustakaan tab lagu', '⑤ Waveform, segmentasi & sampul']) ok(blk.includes(sec), 'panel: ' + sec);
   ok(/\.textContent = /.test(blk) && !/innerHTML/.test(blk), 'panel menulis lewat textContent, tanpa innerHTML');
 
   // ===== 1. inti tab =====

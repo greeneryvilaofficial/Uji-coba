@@ -56,6 +56,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   pr = L.translate('Halo', 'id', 'en', { timeoutMs: 30 }); r = await pr; ok(r.error === 'timeout', 'timeout ditangani, tidak menggantung');
   global.__gwLlamaResult(999, '{"ok":true,"text":"x"}'); ok(true, 'hasil untuk id tak dikenal diabaikan tanpa galat');
 
+  // ---------- 4b. mesin Gemini lewat router (online, hanya bila dipilih eksplisit) ----------
+  { (0, eval)(fs.readFileSync(path.join(LIB, 'online/gemini.js'), 'utf8')); const GM = T.gemini;
+    let rr = await T.translate('Halo', 'id', 'en', { engine: 'gemini' }); ok(rr.error === 'online-disabled' && fetchCalls.length === 0, 'engine "gemini" saat mati: online-disabled, 0 jaringan');
+    GM.enable(true); rr = await T.translate('Halo', 'id', 'en', { engine: 'gemini' }); ok(rr.error === 'no-key' && fetchCalls.length === 0, 'engine "gemini" tanpa kunci: no-key, 0 jaringan');
+    GM.setKey('TESTKEY_abcdefghijklmnop1234');
+    global.AndroidLlama = undefined; const nBefore = fetchCalls.length; rr = await T.translate('Terima kasih', 'id', 'su', { engine: 'auto' });
+    ok(rr.engine === 'dict' && fetchCalls.length === nBefore, '"auto" TIDAK PERNAH online, walau Gemini dinyalakan dan kunci ada');
+    fetchImpl = () => mkResp(200, { candidates: [{ content: { parts: [{ text: 'Thank you' }] }, finishReason: 'STOP' }] });
+    rr = await T.translate('Terima kasih', 'id', 'en', { engine: 'gemini' }); ok(rr.ok && rr.engine === 'gemini' && rr.text === 'Thank you' && fetchCalls.length === nBefore + 1 && fetchCalls[fetchCalls.length - 1].u.startsWith('https://generativelanguage.googleapis.com/'), 'engine "gemini" eksplisit: online, tepat 1 permintaan ke host Google');
+    GM.clearKey(); GM.enable(false); }
+
   // ---------- 5. router ----------
   const n0 = fetchCalls.length;
   global.AndroidLlama = undefined; r = await T.translate('Terima kasih', 'id', 'su', { engine: 'auto' });
@@ -69,7 +80,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // ---------- 6. integrasi index.html, sw.js, build ----------
   const HTML = rd('www/index.html'), SW = rd('www/sw.js'), trm = /var TR_MODS = \[([^\]]+)\]/.exec(HTML);
   const mods = trm ? trm[1].match(/lib\/[a-z\/-]+\.js/g) : [];
-  ok(mods.length === 6 && mods.every(m => fs.existsSync(path.join(LIB, m.slice(4))) && fs.existsSync(path.join(ROOT, 'www', m)) && SW.includes("'" + m + "'")), 'index.html memuat 6 modul lib terjemah: ada di src/lib, di www/lib, dan di cache sw.js');
+  ok(mods.length === 7 && mods.every(m => fs.existsSync(path.join(LIB, m.slice(4))) && fs.existsSync(path.join(ROOT, 'www', m)) && SW.includes("'" + m + "'")), 'index.html memuat 7 modul lib terjemah (termasuk gemini.js): ada di src/lib, di www/lib, dan di cache sw.js');
   ok(mods.every(m => fs.readFileSync(path.join(LIB, m.slice(4)), 'utf8') === rd('www/' + m)), 'www/lib identik dengan src/lib');
   const blk = HTML.slice(HTML.indexOf('[LABEL AI / v1.5.0 / OFFLINE]'));
   ok(/gwTranslateOpen/.test(blk) && !/fetch\(|api\.meta|Authorization/.test(blk), 'blok AI hanya punya tombol + pemuat; tidak ada kode jaringan di index.html');
@@ -81,16 +92,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // ---------- 7. panel (DOM tiruan) ----------
   const byId = {}; class El { constructor(t) { this.tag = t; this.children = []; this.style = {}; this._text = ''; this.handlers = {}; this.value = ''; this.className = ''; this.disabled = false; }
     set id(v) { this._id = v; byId[v] = this; } get id() { return this._id; } set textContent(v) { this._text = String(v); } get textContent() { return this._text; }
-    appendChild(c) { this.children.push(c); return c; } addEventListener(t, f) { (this.handlers[t] = this.handlers[t] || []).push(f); } click() { (this.handlers.click || []).forEach(f => f({})); } }
+    appendChild(c) { this.children.push(c); return c; } setAttribute(k, v) { (this.attrs = this.attrs || {})[k] = v; } addEventListener(t, f) { (this.handlers[t] = this.handlers[t] || []).push(f); } click() { (this.handlers.click || []).forEach(f => f({})); } }
   global.document = { head: new El('head'), body: new El('body'), createElement: t => new El(t), getElementById: id => byId[id] || null };
   delete global.gwTranslateOpen; (0, eval)(fs.readFileSync(path.join(LIB, 'ui', 'translate-panel.js'), 'utf8'));
   ok(typeof global.gwTranslateOpen === 'function', 'panel terdaftar (gwTranslateOpen)');
   global.AndroidLlama = undefined; global.gwTranslateOpen();
-  ok(byId.gwTrPanel.style.display === 'block' && /Llama offline: belum siap/.test(byId['gwtr-status'].textContent) && !/Spark|online/i.test(byId['gwtr-status'].textContent), 'panel menampilkan status jujur: Llama belum siap, kamus siap, tidak ada mesin online');
+  ok(byId.gwTrPanel.style.display === 'block' && /Llama offline: belum siap/.test(byId['gwtr-status'].textContent) && !/Spark/i.test(byId['gwtr-status'].textContent) && /Gemini online: mati · kunci belum ada/.test(byId['gwtr-status'].textContent), 'panel menampilkan status jujur: Llama belum siap, kamus siap, Gemini mati + belum ada kunci, tidak ada Spark');
   byId['gwtr-in'].value = 'Terima kasih'; byId['gwtr-from'].value = 'id'; byId['gwtr-to'].value = 'jv'; byId['gwtr-go'].click(); await sleep(20);
   ok(byId['gwtr-out'].textContent === 'Matur nuwun' && /Kamus offline/.test(byId['gwtr-note'].textContent) && /Llama belum siap/.test(byId['gwtr-note'].textContent), 'klik Terjemahkan: hasil kamus + keterangan mesin + alasan fallback');
   const bn = n => { const q = [byId.gwTrPanel]; while (q.length) { const e = q.shift(); if (e.tag === 'button' && e._text === n) return e; q.push(...e.children); } };
-  ok(!bn('Spark online') && !!bn('Llama offline') && !!bn('Kamus offline') && fetchCalls.length === n0, 'pilihan mesin hanya Otomatis/Llama/Kamus (tidak ada Spark online); 0 jaringan');
+  ok(!bn('Spark online') && !!bn('Llama offline') && !!bn('Kamus offline') && !!bn('Gemini online') && fetchCalls.length === n0, 'pilihan mesin: Otomatis/Llama/Kamus/Gemini online (tidak ada Spark); 0 jaringan');
+  ok(['✍ Lirik', '🎸 Cerdas', '🌐 Terjemah'].every(n => !!bn(n)) && bn('🌐 Terjemah').className === 'on', 'navbar bersama ada: Lirik · Cerdas · Terjemah; Terjemah aktif');
   const walkEls = e => [e].concat(...e.children.map(walkEls)); ok(walkEls(byId.gwTrPanel).filter(e => e.tag === 'input' && e.type === 'password').length === 0, 'panel terjemah tidak punya kolom kunci (tidak ada mesin online)');
 
   console.log(fail ? '\n' + fail + ' dari ' + total + ' GAGAL' : '\nSEMUA LULUS (' + total + ' pemeriksaan terjemah)'); process.exit(fail ? 1 : 0);

@@ -72,11 +72,38 @@ const wait = async (cond, ms = 4000) => { const t0 = Date.now(); while (!cond() 
   await wait(() => byId['full-song'].textContent.startsWith('♪'), 8000); const fs1 = byId['full-song'].textContent;
   ok(fs1.includes('Kunci Am') && /· \d+ bpm · [23]:\d\d ·/.test(fs1) && fs1.includes('Verse 1 › Chorus') && hum.rec === false, 'humming selesai: "' + fs1.split('\n')[1] + '"');
   ok(byId['gwai-lirik'].textContent.includes('[Chorus]') && byId['tab-output'].textContent.includes('Lagu Humming'), 'lirik berakor + tab lagu humming tampil');
+  ok(/^[A-G]/.test(byId['gwai-chords'].value) && byId['gwai-chords'].value.split(' ').length <= 16, 'tautan humming -> ②: akor bait terisi otomatis (' + byId['gwai-chords'].value + '); audio tidak ikut dikirim');
   global.setInterval = realSetInterval;
   window.generateFullSong(); await tick(); ok(true, 'ketukan humming kedua tidak error'); window.generateFullSong(); await tick();
   // Intent dari native
   window.onSparkTrigger('bluesy'); await tick(); ok(byId['gwai-cmdres'].textContent.startsWith('✓ bluesy'), 'onSparkTrigger("bluesy") dari native -> Spark offline');
   const before = byId['gwai-cmdres'].textContent; window.onSparkTrigger('<img onerror=x>'); window.onSparkTrigger('hapus-semua'); await tick(); ok(byId['gwai-cmdres'].textContent === before, 'preset di luar allowlist diabaikan');
+  // ---- tautan Gemini: tombol ☁ memakai mesin yang sama dengan panel "✍ Lirik" (mesin PALSU di sini; tanpa jaringan sungguhan) ----
+  ok(/Gemini online: belum dimuat/.test(byId['gwai-gem'].textContent), 'status Gemini di panel cerdas: "belum dimuat" selama modul Gemini belum ada');
+  byId['gwai-cmd'].value = 'bikin gitarnya meratap'; click('☁ Pahami dengan Gemini').click(); await tick(); ok(byId['gwai-cmdres'].textContent.includes('Modul Gemini gagal dimuat') && net === 0, 'tanpa modul Gemini: pesan jelas, tidak ada jaringan');
+  let gOn = true, gNext = null; const gcalls = [], store = [], navCalls = [];
+  window.gwLoadGemini = async () => true;
+  window.GWTR = { core: { GEM_MSG: { 'online-disabled': 'Gemini online belum dinyalakan (buka "✍ Lirik")', 'rate-limited': 'Kena batas laju (429)' } },
+    gemini: { isOn: () => gOn, hasKey: () => true, keyHint: () => '…1234', command: async t => { gcalls.push(['command', t]); return gNext(t); }, lyrics: async (p, o) => { gcalls.push(['lyrics', p, o]); return gNext(p, o); } },
+    lyrics: { add: o => { store.push(o); return { ok: true, total: store.length }; } } };
+  gNext = () => ({ ok: true, text: 'buat jadi galau dan lebih lambat', actions: ['galau', 'lambat'] });
+  byId['gwai-cmd'].value = 'bikin gitarnya meratap pelan'; click('☁ Pahami dengan Gemini').click(); await tick(); await tick();
+  ok(gcalls.length === 1 && gcalls[0][0] === 'command' && gcalls[0][1] === 'bikin gitarnya meratap pelan', 'tombol ☁ Pahami: hanya teks perintah yang dikirim ke Gemini');
+  ok(byId['gwai-cmdres'].textContent.startsWith('☁ Gemini memilih: galau + lambat') && byId['gwai-cmdres'].textContent.includes('✓ galau + lambat'), 'hasil Gemini dijalankan oleh EDITOR OFFLINE (tab benar-benar berubah): ' + byId['gwai-cmdres'].textContent.split('\n').join(' | '));
+  ok(/Gemini online: NYALA · kunci …1234/.test(byId['gwai-gem'].textContent), 'status Gemini di panel cerdas ikut mesin bersama (NYALA, kunci …1234)');
+  gNext = () => ({ ok: false, error: 'rate-limited' }); click('☁ Pahami dengan Gemini').click(); await tick(); await tick(); ok(byId['gwai-cmdres'].textContent === '✗ Kena batas laju (429)', 'galat Gemini ditampilkan dengan pesan Indonesia');
+  gNext = () => ({ ok: false, error: 'online-disabled' }); click('☁ Pahami dengan Gemini').click(); await tick(); await tick(); ok(/belum dinyalakan/.test(byId['gwai-cmdres'].textContent), 'Gemini mati -> petunjuk menyalakan di "✍ Lirik"');
+  gcalls.length = 0; byId['gwai-chords'].value = ''; click('☁ Lirik Gemini').click(); await tick(); ok(byId['gwai-lirik'].textContent.includes('Isi akor dulu') && gcalls.length === 0, 'lirik Gemini tanpa akor: ditolak sebelum dikirim');
+  byId['gwai-chords'].value = 'Em Hx G'; click('☁ Lirik Gemini').click(); await tick(); await tick(); ok(byId['gwai-lirik'].textContent.includes('Akor tidak valid: Hx') && gcalls.length === 0, 'akor salah divalidasi offline (teori musik) SEBELUM dikirim ke Gemini');
+  const LYR = 'Judul: Hujan <img src=x onerror=alert(1)>\n\nLirik:\n[Verse 1]\nSenja pergi'; gNext = () => ({ ok: true, text: LYR, model: 'gemini-2.5-flash' });
+  byId['gwai-chords'].value = 'Em C G D'; click('☁ Lirik Gemini').click(); await tick(); await tick();
+  ok(gcalls.length === 1 && gcalls[0][0] === 'lyrics' && gcalls[0][2].chords === 'Em C G D' && /ceria/.test(gcalls[0][1]), 'lirik Gemini: yang dikirim hanya prompt suasana + akor "Em C G D"');
+  ok(byId['gwai-lirik'].textContent.startsWith('☁ Gemini (gemini-2.5-flash) · akor Em C G D') && byId['gwai-lirik'].textContent.includes(LYR) && byId['gwai-lirik'].children.length === 0, 'lirik tampil sebagai TEKS (judul berbahaya tidak jadi elemen)');
+  ok(store.length === 1 && store[0].text === LYR && store[0].prompt === 'akor: Em C G D · ceria' && /tersimpan offline di "✍ Lirik" \(1 lagu\)/.test(byId['gwai-note'].textContent), 'lirik Gemini otomatis disimpan ke penyimpanan offline yang SAMA dengan panel "✍ Lirik"');
+  window.gwNav = n => navCalls.push(n); const nb = n => click(n);
+  ok(['✍ Lirik', '🎸 Cerdas', '🌐 Terjemah'].every(n => !!nb(n)) && nb('🎸 Cerdas').className === 'on' && nb('✍ Lirik').className !== 'on', 'navbar di panel cerdas: Lirik · Cerdas · Terjemah, "Cerdas" aktif');
+  nb('✍ Lirik').click(); nb('🌐 Terjemah').click(); nb('🎸 Cerdas').click(); ok(navCalls.join() === 'lyrics,translate', 'navbar: pindah ke Lirik / Terjemah lewat gwNav; tombol panel sendiri tidak melakukan apa-apa');
+  delete window.GWTR; delete window.gwLoadGemini; delete window.gwNav;
   // tema: gaya panel memakai variabel tema keyboard, bukan warna manual
   const css = head.children.map(c => c.textContent).filter(x => x.includes('#gwaiPanel')).join('\n'), used = [...new Set([...css.matchAll(/var\((--[a-z-]+)/g)].map(m => m[1]))];
   const defined = n => new RegExp('\\n\\s*' + n + '\\s*:').test(HTML);
