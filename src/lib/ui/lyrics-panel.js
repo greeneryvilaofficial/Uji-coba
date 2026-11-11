@@ -11,18 +11,13 @@
   if (!NS || !NS.core || !NS.gemini || !NS.lyrics || root.gwLyricsOpen) return;
   var C = NS.core, G = NS.gemini, S = NS.lyrics, doc = root.document, panel = null, shown = null, armed = {};
 
-  var MSG = {
+  var MSG = {   // pesan khusus panel ini; sisanya (galat Gemini) dari core.GEM_MSG
     'empty': 'Tulis dulu permintaan lagunya.', 'too-long': 'Terlalu panjang (maks ' + G.MAX_PROMPT + ' karakter).',
-    'online-disabled': 'Gemini online belum dinyalakan (bagian "Gemini online" di bawah).', 'no-key': 'Belum ada kunci API Gemini (bagian "Gemini online" di bawah).',
-    'key-rejected': 'Kunci ditolak Google (400/401/403). Periksa kuncinya, atau pembatasannya di Google AI Studio.',
-    'model-404': 'Nama model tidak ditemukan (404). Model lama seperti gemini-1.5-flash sudah dihentikan; ganti nama model di bawah.',
-    'bad-request': 'Permintaan ditolak (400). Mungkin nama model salah.', 'rate-limited': 'Kena batas laju / kuota gratis habis (429). Tunggu sebentar.',
-    'server-error': 'Server Google sedang sibuk (5xx). Coba lagi nanti.', 'timeout': 'Waktu habis (30 dtk).', 'network': 'Tidak ada koneksi internet. (Lagu yang sudah tersimpan tetap bisa dibuka di bawah.)',
-    'busy': 'Masih memproses permintaan sebelumnya.', 'too-fast': 'Terlalu cepat; tunggu 1 detik.', 'bad-key': 'Kunci tidak valid.', 'bad-model': 'Nama model tidak valid.',
-    'blocked': 'Jawaban ditahan filter keamanan Google. Coba ubah permintaannya.', 'empty-answer': 'Jawaban kosong. Coba lagi atau ganti model.',
+    'network': 'Tidak ada koneksi internet. (Lagu yang sudah tersimpan tetap bisa dibuka di bawah.)',
+    'bad-key': 'Kunci tidak valid.', 'bad-model': 'Nama model tidak valid.',
     'storage-full': 'Penyimpanan HP penuh: lagu tidak tersimpan.', 'storage-unavailable': 'Penyimpanan lokal tidak tersedia.'
   };
-  function msg(r) { var m = MSG[r.error] || ('Gagal: ' + r.error); return r.detail ? m + ' (' + r.detail + ')' : m; }
+  function msg(r) { var m = MSG[r.error] || C.GEM_MSG[r.error] || ('Gagal: ' + r.error); return r.detail ? m + ' (' + r.detail + ')' : m; }
   function $(id) { return doc.getElementById(id); }
   function setText(id, t) { var e = $(id); if (e) e.textContent = t; }
 
@@ -39,7 +34,7 @@
       '#gwLyPanel textarea{min-height:56px;resize:vertical}' +
       '#gwLyPanel pre{margin:6px 0;padding:8px;background:var(--key-fn-bg);color:var(--key-text);border:1px solid var(--divider);border-radius:var(--key-radius,8px);white-space:pre-wrap;word-break:break-word;min-height:2.4em;max-height:260px;overflow:auto;font-family:inherit}' +
       '#gwLyPanel .row{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--divider)}#gwLyPanel .row .song{flex:1;min-width:0;text-align:left;background:transparent;box-shadow:none;margin:0;padding:8px 6px}' +
-      '#gwLyPanel .song .ttl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gwLyPanel .song .sub{display:block;font-size:.72rem;color:var(--muted)}';
+      '#gwLyPanel .song .ttl{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#gwLyPanel .song .sub{display:block;font-size:.72rem;color:var(--muted)}' + C.navCss('#gwLyPanel');
     doc.head.appendChild(css);
     panel = doc.createElement('div'); panel.id = 'gwLyPanel'; panel.style.display = 'none';
     (doc.getElementById('kbWrap') || doc.body).appendChild(panel);
@@ -50,6 +45,7 @@
 
     var head = el('div', null, 'gw-head'), t = doc.createElement('div'); t.className = 'gw-title'; t.textContent = '✍ Lirik AI · '; var b = doc.createElement('b'); b.textContent = 'Gemini'; t.appendChild(b); head.appendChild(t);
     btn('✕ Tutup', function () { root.gwLyricsClose(); }, null, head).className = 'fn';
+    C.navBar(doc, panel, 'lyrics');
     el('div', 'Memuat…', 'hint').id = 'gwly-status';
 
     field('textarea', 'gwly-prompt', 'cth: bikinin lagu galau chord gampang', null, G.MAX_PROMPT);
