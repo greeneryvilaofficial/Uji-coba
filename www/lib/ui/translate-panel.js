@@ -1,6 +1,6 @@
 /* ============================================================================================
  * [LABEL GWTR / PANEL] src/lib/ui/translate-panel.js
- * Panel "Terjemah": pilih bahasa + mesin (Otomatis / Llama offline / Kamus offline) — semuanya offline.
+ * Panel "Terjemah": pilih bahasa + mesin (Otomatis / Llama offline / Kamus offline / Gemini online). Kunci Gemini diatur di panel "✍ Lirik".
  * Warna 100% dari variabel CSS keyboard (ikut tema). Keluaran selalu lewat textContent.
  * window.gwTranslateOpen() / window.gwTranslateClose()
  * ============================================================================================ */
@@ -14,7 +14,7 @@
     'empty': 'Ketik teks dulu.', 'same-lang': 'Bahasa asal dan tujuan sama.', 'too-long': 'Terlalu panjang (maks ' + C.MAX_CHARS + ' karakter).',
     'llama-unavailable': 'Llama offline belum siap di HP ini.', 'busy': 'Masih memproses permintaan sebelumnya.', 'timeout': 'Waktu habis.'
   };
-  function msg(r) { var m = MSG[r.error] || ('Gagal: ' + r.error); return r.detail ? m + ' (' + r.detail + ')' : m; }
+  function msg(r) { var m = MSG[r.error] || C.GEM_MSG[r.error] || ('Gagal: ' + r.error); return r.detail ? m + ' (' + r.detail + ')' : m; }
   function $(id) { return doc.getElementById(id); }
   function setText(id, t) { var e = $(id); if (e) e.textContent = t; }
 
@@ -32,7 +32,7 @@
       '#gwTrPanel textarea,#gwTrPanel input,#gwTrPanel select{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:10px;background:var(--key-fn-bg);color:var(--key-text);border:1px solid var(--divider);border-radius:var(--key-radius,8px);font:inherit}' +
       '#gwTrPanel textarea{min-height:64px;resize:vertical}#gwTrPanel .row{display:flex;gap:6px;align-items:center}#gwTrPanel .row select{flex:1}' +
       '#gwTrPanel pre{margin:6px 0;padding:8px;background:var(--key-fn-bg);color:var(--key-text);border:1px solid var(--divider);border-radius:var(--key-radius,8px);white-space:pre-wrap;word-break:break-word;min-height:2.4em}' +
-      '#gwTrPanel select option{background:var(--key-fn-bg);color:var(--key-text)}';
+      '#gwTrPanel select option{background:var(--key-fn-bg);color:var(--key-text)}' + C.navCss('#gwTrPanel');
     doc.head.appendChild(css);
     panel = doc.createElement('div'); panel.id = 'gwTrPanel'; panel.style.display = 'none';
     (doc.getElementById('kbWrap') || doc.body).appendChild(panel);
@@ -43,6 +43,7 @@
 
     var head = el('div', null, 'gw-head'), t = doc.createElement('div'); t.className = 'gw-title'; t.textContent = '🌐 Terjemah · '; var b = doc.createElement('b'); b.textContent = 'EN ID SU JV'; t.appendChild(b); head.appendChild(t);
     btn('✕ Tutup', function () { root.gwTranslateClose(); }, null, head).className = 'fn';
+    C.navBar(doc, panel, 'translate');
     el('div', 'Memuat…', 'hint').id = 'gwtr-status';
 
     var row = el('div', null, 'row'), from = doc.createElement('select'), to = doc.createElement('select'); from.id = 'gwtr-from'; to.id = 'gwtr-to';
@@ -50,22 +51,24 @@
     from.value = 'id'; to.value = 'en'; row.appendChild(from); btn('⇄', function () { var a = from.value; from.value = to.value; to.value = a; }, null, row); row.appendChild(to);
 
     var chips = el('div', null, 'chips'), cb = {};
-    [['Otomatis', 'auto'], ['Llama offline', 'llama'], ['Kamus offline', 'dict']].forEach(function (m) {
+    [['Otomatis', 'auto'], ['Llama offline', 'llama'], ['Kamus offline', 'dict'], ['Gemini online', 'gemini']].forEach(function (m) {
       cb[m[1]] = btn(m[0], function () { engine = m[1]; Object.keys(cb).forEach(function (k) { cb[k].className = ''; }); cb[m[1]].className = 'on'; refresh(); }, null, chips); });
     cb.auto.className = 'on';
-    el('div', 'Otomatis = Llama offline bila siap, kalau tidak kamus offline. Semua mesin di sini offline.', 'hint');
+    el('div', 'Otomatis = Llama offline bila siap, kalau tidak kamus offline; TIDAK pernah online. "Gemini online" hanya jalan bila kamu memilihnya, sudah menyalakan Gemini dan punya kunci (diatur di "✍ Lirik"); hanya teks di kotak ini yang dikirim.', 'hint');
 
     field('textarea', 'gwtr-in', 'Ketik teks (maks ' + C.MAX_CHARS + ' karakter)', null, C.MAX_CHARS);
     btn('Terjemahkan', run, 'gwtr-go');
     btn('Ketik hasil', function () { if (last && last.ok && root.AndroidKeyboard && root.AndroidKeyboard.commitText) { try { root.AndroidKeyboard.commitText(last.text); } catch (e) {} } }, 'gwtr-type');
     var out = el('pre', 'Hasil terjemahan tampil di sini.'); out.id = 'gwtr-out';
     el('div', '', 'hint').id = 'gwtr-note';
+    btn('Atur kunci Gemini (✍ Lirik)', function () { if (typeof root.gwNav === 'function') root.gwNav('lyrics'); }, 'gwtr-setkey').className = 'fn';
   }
 
   function refresh() {
     var parts = [], st = NS.llama ? NS.llama.status() : { available: false, text: 'modul Llama tidak dimuat' };
     parts.push('Llama offline: ' + (st.available ? 'siap ✓' : 'belum siap — ' + st.text));
     parts.push('Kamus offline: siap ✓ (' + (NS.dict ? NS.dict.size() : 0) + ' entri benih)');
+    parts.push('Gemini online: ' + (NS.gemini ? (NS.gemini.isOn() ? 'NYALA' : 'mati') + ' · kunci ' + (NS.gemini.hasKey() ? NS.gemini.keyHint() : 'belum ada') : 'modul tidak dimuat'));
     setText('gwtr-status', parts.join('\n'));
   }
 
@@ -75,7 +78,7 @@
       last = r; go.disabled = false;
       if (!r.ok) { setText('gwtr-out', ''); setText('gwtr-note', '✗ ' + msg(r)); return; }
       setText('gwtr-out', r.text);
-      var label = r.engine === 'llama' ? 'Meta Llama (offline, di perangkat)' : 'Kamus offline (kata-per-kata)';
+      var label = r.engine === 'llama' ? 'Meta Llama (offline, di perangkat)' : r.engine === 'gemini' ? 'Google Gemini (ONLINE)' : 'Kamus offline (kata-per-kata)';
       setText('gwtr-note', 'Mesin: ' + label + (r.fellBack ? ' — Llama belum siap, jadi memakai kamus' : '') + (r.note ? '\n' + r.note : ''));
     });
   }
