@@ -1,7 +1,8 @@
 /* ============================================================================================
  * [LABEL GWTR / ROUTER] src/lib/router.js
- * GWTR.translate(text, from, to, { engine })   engine: 'auto' | 'llama' | 'dict'   (SEMUA offline; Muse Spark online dihapus di v1.8.0)
- *   auto  = Llama offline bila siap, kalau tidak kamus offline.
+ * GWTR.translate(text, from, to, { engine })   engine: 'auto' | 'llama' | 'dict' | 'gemini'
+ *   auto   = Llama offline bila siap, kalau tidak kamus offline. TIDAK PERNAH memakai online secara otomatis.
+ *   gemini = online (Google Gemini), hanya bila dipilih eksplisit DAN sudah dinyalakan + ada kunci (lihat online/gemini.js).
  * Hasil selalu memuat `engine` yang BENAR-BENAR dipakai, dan `fellBack:true` bila auto jatuh ke kamus.
  * ============================================================================================ */
 (function (root) {
@@ -12,6 +13,7 @@
   function translate(text, from, to, opts) {
     var engine = (opts && opts.engine) || 'auto';
     if (engine === 'dict') return Promise.resolve(NS.dict ? NS.dict.translate(text, from, to) : C.fail('module-missing', 'dict'));
+    if (engine === 'gemini') return NS.gemini ? NS.gemini.translate(text, from, to) : Promise.resolve(C.fail('module-missing', 'gemini'));
     if (engine === 'llama') return NS.llama ? NS.llama.translate(text, from, to, opts) : Promise.resolve(C.fail('module-missing', 'llama'));
     if (engine !== 'auto') return Promise.resolve(C.fail('bad-engine'));
     if (NS.llama && NS.llama.status().available) {
