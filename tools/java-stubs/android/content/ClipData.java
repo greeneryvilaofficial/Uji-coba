@@ -1,0 +1,2 @@
+package android.content;
+public class ClipData { public int getItemCount(){return 0;} public Item getItemAt(int i){return null;} public static class Item { public android.net.Uri getUri(){return null;} } }
