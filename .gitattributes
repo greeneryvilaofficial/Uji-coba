@@ -1,0 +1,6 @@
+# Semua berkas teks LF (skrip shell/Python dan pemeriksaan sinkron src/lib -> www/lib rusak kalau Windows mengubahnya jadi CRLF).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.gguf binary
+*.apk binary
