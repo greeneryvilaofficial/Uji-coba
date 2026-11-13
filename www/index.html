@@ -4736,7 +4736,8 @@
   // ---------------- [LABEL GWNAV] navbar bersama ✍ Lirik · 🎸 Cerdas · 🌐 Terjemah: satu mesin Gemini (kunci/saklar/model) untuk ketiganya ----------------
   window.gwLoadGemini = loadLyrics;   // memuat core + gemini + penyimpanan lirik + panel Lirik (aset lokal, tanpa jaringan)
   window.gwNav = function(name){
-    if(name === 'smart' && !prefs.ai){ showStatus('Nyalakan "Fitur cerdas (offline + Gemini)" di Setelan → Eksperimental dulu.'); return; }
+    if(name === 'smart' && !prefs.ai){ showStatus('❌ Fitur cerdas belum dinyalakan: Setelan → Eksperimental → "Fitur cerdas (offline + Gemini)".'); return; }   // showStatus hanya menampilkan pesan bertanda ❌ (gaya Gboard); tanpa tanda ini ketukan terasa "mati"
+
     ['gwLyricsClose','gwTranslateClose','gwaiClose'].forEach(f => { try{ if(window[f]) window[f](); }catch(e){} });
     if(name === 'lyrics') loadLyrics().then(ok => ok ? window.gwLyricsOpen() : showStatus('❌ Modul Lirik AI gagal dimuat. Pasang ulang APK dari build terbaru.'));
     else if(name === 'translate') (window.gwLoadTranslate ? window.gwLoadTranslate() : Promise.resolve(false)).then(ok => ok ? window.gwTranslateOpen() : showStatus('❌ Modul terjemah gagal dimuat. Pasang ulang APK dari build terbaru.'));
@@ -4978,20 +4979,22 @@
       '#gwaiPanel input,#gwaiPanel select{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:10px;background:var(--key-fn-bg);color:var(--key-text);border:1px solid var(--divider);border-radius:var(--key-radius,8px);font:inherit}' +
       '#gwaiPanel input::placeholder{color:var(--muted)}#gwaiPanel input:focus,#gwaiPanel select:focus{outline:none;border-color:var(--key-tag)}' +
       '#gwaiPanel select option{background:var(--key-fn-bg);color:var(--key-text)}' +
+      '#gwaiPanel .gw-top{position:sticky;top:-12px;z-index:5;background:var(--kb-bg);margin:-12px -12px 6px;padding:12px 12px 0}' +
       '#gwaiPanel .gw-nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}#gwaiPanel .gw-nav button{margin:0;border-radius:999px;background:var(--pill-bg);padding:7px 13px;font-size:.9rem}' +
+      '#gwaiPanel .gw-nav button.on{background:var(--key-enter-bg);color:var(--kb-bg);font-weight:600}body.theme-light #gwaiPanel .gw-nav button.on{color:var(--key-bubble-text)}' +
       '#gwaiPanel canvas{width:100%;height:56px;background:var(--key-fn-bg);border:1px solid var(--divider);border-radius:var(--key-radius,8px)}' +
       '#gwaiPanel img{max-width:100%;max-height:200px;display:none;border-radius:var(--key-radius,8px);margin-top:6px;border:1px solid var(--divider)}';
     document.head.appendChild(st);
     panel = document.createElement('div'); panel.id = 'gwaiPanel'; panel.style.display = 'none';
     ($('kbWrap') || document.body).appendChild(panel);
-    function el(tag, text, cls){ var e = document.createElement(tag); if(text != null) e.textContent = text; if(cls) e.className = cls; panel.appendChild(e); return e; }
+    function el(tag, text, cls, parent){ var e = document.createElement(tag); if(text != null) e.textContent = text; if(cls) e.className = cls; (parent || panel).appendChild(e); return e; }
     function btn(label, fn, id, parent){ var b = document.createElement('button'); if(id) b.id = id; b.textContent = label; b.addEventListener('click', fn); (parent || panel).appendChild(b); return b; }
     function inp(ph, id, max){ var i = document.createElement('input'); i.type = 'text'; i.id = id; i.placeholder = ph; i.maxLength = max || 80; i.autocomplete = 'off'; i.spellcheck = false; panel.appendChild(i); return i; }
     function pre(id, t){ var p = el('pre', t); p.id = id; return p; }
 
-    var head = el('div', null, 'gw-head'), ttl = document.createElement('div'); ttl.className = 'gw-title'; ttl.textContent = '🎸 Fitur cerdas · '; var ob = document.createElement('b'); ob.textContent = 'OFFLINE + Gemini'; ttl.appendChild(ob); head.appendChild(ttl);
+    var top = el('div', null, 'gw-top'), head = el('div', null, 'gw-head', top), ttl = document.createElement('div'); ttl.className = 'gw-title'; ttl.textContent = '🎸 Fitur cerdas · '; var ob = document.createElement('b'); ob.textContent = 'OFFLINE + Gemini'; ttl.appendChild(ob); head.appendChild(ttl);
     btn('✕ Tutup', function(){ window.gwaiClose(); }, null, head).className = 'fn';
-    var nav = el('div', null, 'gw-nav');
+    var nav = el('div', null, 'gw-nav', top);
     [['lyrics','✍ Lirik'],['smart','🎸 Cerdas'],['translate','🌐 Terjemah']].forEach(function(x){
       var nb = btn(x[1], function(){ if(x[0] !== 'smart' && window.gwNav) window.gwNav(x[0]); }, null, nav); if(x[0] === 'smart') nb.className = 'on'; });
     el('div', 'Semua fitur jalan OFFLINE di HP ini. Tombol bertanda ☁ memakai Gemini (online) HANYA bila kamu menyalakannya di "✍ Lirik" dan mengetuk tombolnya; yang dikirim cuma teks perintah / akor yang kamu tulis. Audio humming, isi tab, dan ketikan tidak pernah dikirim.', 'hint');
