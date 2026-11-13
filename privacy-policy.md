@@ -1,6 +1,6 @@
 # Kebijakan Privasi — Guitarwiter
 
-_Terakhir diperbarui: 11 November 2026 (v1.9.0: Fitur cerdas, Terjemah, dan Lirik AI memakai satu mesin Gemini opsional)_
+_Terakhir diperbarui: 12 November 2026 (v1.9.1: perbaikan service worker + alat uji; tidak ada perubahan pada data yang dikumpulkan atau dikirim)_
 
 Guitarwiter adalah keyboard Android yang mengubah nada gitar (lewat mikrofon) menjadi ketikan. Kebijakan ini menjelaskan data apa yang disentuh aplikasi dan ke mana perginya.
 
