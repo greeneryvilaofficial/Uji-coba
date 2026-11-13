@@ -41,9 +41,9 @@
     function btn(label, fn, id, parent) { var b = doc.createElement('button'); if (id) b.id = id; b.textContent = label; b.addEventListener('click', fn); (parent || panel).appendChild(b); return b; }
     function field(tag, id, ph, type, max) { var i = doc.createElement(tag); i.id = id; if (ph) i.placeholder = ph; if (type) i.type = type; if (max) i.maxLength = max; i.autocomplete = 'off'; i.spellcheck = false; panel.appendChild(i); return i; }
 
-    var head = el('div', null, 'gw-head'), t = doc.createElement('div'); t.className = 'gw-title'; t.textContent = '🌐 Terjemah · '; var b = doc.createElement('b'); b.textContent = 'EN ID SU JV'; t.appendChild(b); head.appendChild(t);
+    var top = el('div', null, 'gw-top'), head = el('div', null, 'gw-head', top), t = doc.createElement('div'); t.className = 'gw-title'; t.textContent = '🌐 Terjemah · '; var b = doc.createElement('b'); b.textContent = 'EN ID SU JV'; t.appendChild(b); head.appendChild(t);
     btn('✕ Tutup', function () { root.gwTranslateClose(); }, null, head).className = 'fn';
-    C.navBar(doc, panel, 'translate');
+    C.navBar(doc, top, 'translate');
     el('div', 'Memuat…', 'hint').id = 'gwtr-status';
 
     var row = el('div', null, 'row'), from = doc.createElement('select'), to = doc.createElement('select'); from.id = 'gwtr-from'; to.id = 'gwtr-to';

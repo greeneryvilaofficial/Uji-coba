@@ -43,9 +43,9 @@
     function btn(label, fn, id, parent) { var b = doc.createElement('button'); if (id) b.id = id; b.textContent = label; b.addEventListener('click', fn); (parent || panel).appendChild(b); return b; }
     function field(tag, id, ph, type, max) { var i = doc.createElement(tag); i.id = id; if (ph) i.placeholder = ph; if (type) i.type = type; if (max) i.maxLength = max; i.autocomplete = 'off'; i.spellcheck = false; panel.appendChild(i); return i; }
 
-    var head = el('div', null, 'gw-head'), t = doc.createElement('div'); t.className = 'gw-title'; t.textContent = '✍ Lirik AI · '; var b = doc.createElement('b'); b.textContent = 'Gemini'; t.appendChild(b); head.appendChild(t);
+    var top = el('div', null, 'gw-top'), head = el('div', null, 'gw-head', top), t = doc.createElement('div'); t.className = 'gw-title'; t.textContent = '✍ Lirik AI · '; var b = doc.createElement('b'); b.textContent = 'Gemini'; t.appendChild(b); head.appendChild(t);
     btn('✕ Tutup', function () { root.gwLyricsClose(); }, null, head).className = 'fn';
-    C.navBar(doc, panel, 'lyrics');
+    C.navBar(doc, top, 'lyrics');
     el('div', 'Memuat…', 'hint').id = 'gwly-status';
 
     field('textarea', 'gwly-prompt', 'cth: bikinin lagu galau chord gampang', null, G.MAX_PROMPT);
