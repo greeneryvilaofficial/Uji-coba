@@ -57,7 +57,9 @@
   /* Navbar bersama tiga panel: ✍ Lirik · 🎸 Cerdas · 🌐 Terjemah. Pindah panel lewat window.gwNav (disediakan index.html). Panel Fitur cerdas membuat versinya sendiri dengan susunan yang sama. */
   var NAV = [['lyrics', '✍ Lirik'], ['smart', '🎸 Cerdas'], ['translate', '🌐 Terjemah']];
   function navCss(sel) {
-    return sel + ' .gw-nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}' + sel + ' .gw-nav button{margin:0;padding:7px 13px;border-radius:999px;background:var(--pill-bg);font-size:.9rem}' +
+    // .gw-top = judul + navbar: menempel di atas saat isi panel di-scroll (panel hanya setinggi keyboard, hasil panjang harus digulir).
+    // Margin negatif menembus padding panel (12px) supaya latar penuh sampai tepi; top:-12px karena offset sticky dihitung dari area isi (setelah padding), jadi -12px = tepat di tepi atas panel (terukur di tools/e2e).
+    return sel + ' .gw-top{position:sticky;top:-12px;z-index:5;background:var(--kb-bg);margin:-12px -12px 6px;padding:12px 12px 0}' + sel + ' .gw-nav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}' + sel + ' .gw-nav button{margin:0;padding:7px 13px;border-radius:999px;background:var(--pill-bg);font-size:.9rem}' +
       sel + ' .gw-nav button.on{background:var(--key-enter-bg);color:var(--kb-bg);font-weight:600}body.theme-light ' + sel + ' .gw-nav button.on{color:var(--key-bubble-text)}';
   }
   function navBar(doc, parent, current) {
@@ -70,6 +72,6 @@
     parent.appendChild(bar); return bar;
   }
 
-  NS.version = '1.9.0';
+  NS.version = '1.9.1';
   NS.core = { GEM_MSG: GEM_MSG, NAV: NAV, navCss: navCss, navBar: navBar, LANGS: LANGS, MAX_CHARS: MAX_CHARS, fail: fail, done: done, isLang: isLang, checkInput: checkInput, systemPrompt: systemPrompt, cleanOutput: cleanOutput };
 })(typeof window !== 'undefined' ? window : globalThis);
